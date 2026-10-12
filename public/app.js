@@ -287,6 +287,7 @@ on('lobby', (m) => {
 
 /* ---------- race (student) ---------- */
 const Race = { view: null, players: [], total: 0, ready: false, pending: null, q: null, answered: -1, tick: 0, flat: null };
+const TX = (ar, en) => (Race.lang === 'en' ? en : ar);
 function endRace() {
   engineStop(); clearInterval(Race.tick);
   if (Race.view) { try { Race.view.dispose(); } catch (e) { /* ignore */ } Race.view = null; }
@@ -295,6 +296,7 @@ function endRace() {
 }
 on('countdown', (m) => {
   if (S.role !== 'student' || !S.student) return;
+  Race.lang = m.lang === 'en' ? 'en' : 'ar';
   if (S.bestRtt > 1e8) S.offset = m.serverNow - Date.now();
   if (Race.view) return;
   Preview.unmount(); show('race'); $('#bar-title').textContent = (S.lobby && S.lobby.title) || 'سباق المعرفة';
@@ -343,13 +345,13 @@ function showQuestion(m) {
   Race.q = m; Race.answered = -1; Race.lastTick = -1;
   const box = $('#qbox'); box.hidden = false;
   $('#qnum').textContent = 'QUESTION ' + (m.n + 1) + ' / ' + m.total;
-  $('#qtext').textContent = m.q;
+  $('#qtext').textContent = m.q; $('#qtext').setAttribute('dir', 'auto');
   const code = $('#qcode'); code.hidden = !(m.code && m.code.trim()); code.textContent = m.code || '';
   const ch = $('#choices'); ch.replaceChildren(); ch.classList.toggle('short', m.type === 'short');
   $('#qchips').textContent = (m.points || 0) + ' PTS' + (m.difficulty ? ' · ' + DIFF[m.difficulty] : '') + (m.category ? ' · ' + m.category : '');
   if (m.type === 'short') {
-    const inp = h('input', { type: 'text', class: 'shortin', id: 'shortin', maxlength: 100, autocomplete: 'off', dir: 'auto', placeholder: 'اكتبي إجابتك هنا…', 'aria-label': 'إجابتك' });
-    const go = h('button', { type: 'button', class: 'btn btn-go', text: 'إرسال ↵' });
+    const inp = h('input', { type: 'text', class: 'shortin', id: 'shortin', maxlength: 100, autocomplete: 'off', dir: 'auto', placeholder: TX('اكتبي إجابتك هنا…', 'Type your answer…'), 'aria-label': 'إجابتك' });
+    const go = h('button', { type: 'button', class: 'btn btn-go', text: TX('إرسال ↵', 'Submit ↵') });
     const submit = () => { const v = inp.value.trim(); if (v) chooseText(v); };
     go.addEventListener('click', submit); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
     ch.append(inp, go); setTimeout(() => { try { inp.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 50);
@@ -394,10 +396,10 @@ on('ack', (m) => {
   $$('#choices .choice').forEach((b, k) => { if (k === m.choice) b.classList.add(m.ok ? 'correct' : 'wrong'); });
   const fb = $('#fb');
   if (m.ok) {
-    fb.textContent = 'إجابة صحيحة! +' + m.pts + ' نقطة'; fb.className = 'feedback good'; sfx('good'); sfx('boost'); popPts('+' + m.pts, true);
+    fb.textContent = TX('إجابة صحيحة! +' + m.pts + ' نقطة', 'Correct! +' + m.pts + ' pts'); fb.className = 'feedback good'; sfx('good'); sfx('boost'); popPts('+' + m.pts, true);
     if (Race.view) { Race.view.toast('CORRECT!', 'good'); Race.view.boostMe(); }
   } else {
-    fb.textContent = 'إجابة غلط — استني ظهور الإجابة الصحيحة'; fb.className = 'feedback bad'; sfx('bad'); popPts('✕', false);
+    fb.textContent = TX('إجابة غلط — استني ظهور الإجابة الصحيحة', 'Wrong — wait for the answer'); fb.className = 'feedback bad'; sfx('bad'); popPts('✕', false);
     if (Race.view) Race.view.wrongMe();
   }
 });
@@ -420,9 +422,9 @@ on('reveal', (m) => {
     const handled = Race.myAck && Race.myAck.n === m.n;
     $$('#choices .choice').forEach((b, k) => { b.disabled = true; b.classList.remove('picked', 'wrong', 'correct'); if (k === m.correct) b.classList.add('correct'); else if (k === me.choice) b.classList.add('wrong'); });
     const fb = $('#fb');
-    if (m.qtype === 'short') { fb.textContent = (me.ok ? 'إجابة صحيحة! +' + me.pts + ' نقطة' : (me.choice < 0 && !me.text ? 'الوقت خلص. ' : 'إجابة غلط. ') + 'الإجابة الصحيحة: ' + m.correct); fb.className = 'feedback ' + (me.ok ? 'good' : 'bad'); }
-    else if (me.ok) { fb.textContent = 'إجابة صحيحة! +' + me.pts + ' نقطة'; fb.className = 'feedback good'; }
-    else { fb.textContent = me.choice < 0 ? 'الوقت خلص. الإجابة الصحيحة باللون الأخضر.' : 'إجابة غلط. الإجابة الصحيحة باللون الأخضر.'; fb.className = 'feedback bad'; }
+    if (m.qtype === 'short') { fb.textContent = (me.ok ? TX('إجابة صحيحة! +' + me.pts + ' نقطة', 'Correct! +' + me.pts + ' pts') : (me.choice < 0 && !me.text ? TX('الوقت خلص. ', "Time's up. ") : TX('إجابة غلط. ', 'Wrong. ')) + TX('الإجابة الصحيحة: ', 'Correct answer: ') + m.correct); fb.className = 'feedback ' + (me.ok ? 'good' : 'bad'); }
+    else if (me.ok) { fb.textContent = TX('إجابة صحيحة! +' + me.pts + ' نقطة', 'Correct! +' + me.pts + ' pts'); fb.className = 'feedback good'; }
+    else { fb.textContent = me.choice < 0 ? TX('الوقت خلص. الإجابة الصحيحة باللون الأخضر.', "Time's up. The correct answer is in green.") : TX('إجابة غلط. الإجابة الصحيحة باللون الأخضر.', 'Wrong. The correct answer is in green.'); fb.className = 'feedback bad'; }
     if (!handled && me.ok) { sfx('good'); sfx('boost'); } else if (!handled && !me.ok && me.choice >= 0) sfx('bad');
     applyBoard(m.board);
     if (Race.view) { Race.view.sync(handled || me.choice >= 0 ? null : false); if (m.last) Race.view.finalize(); } else updateFlat();
@@ -439,9 +441,9 @@ function levelAr(l) { return l.ar + ' · ' + l.en; }
 function studentResults(m) {
   show('sresult'); sfx('finish');
   const me = m.board.find((r) => r.id === S.student.pid) || m.board[0];
-  const localMode = !!(m.solo && m.solo.local);
+  const localMode = !!(m.solo && m.solo.local && !m.solo.rivals);
   if (localMode) { me.rank = 1; me.of = 0; m.board = [{ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: 1 }]; }
-  else if (m.solo) { me.rank = m.solo.rank || 0; me.of = m.solo.of; m.board = m.solo.top.map((t, i) => ({ id: 'top' + i, name: t.name, score: t.score, correct: t.correct, color: (t.name === me.name && t.score === me.score) ? me.color : (i === 0 ? 'yellow' : i === 1 ? 'white' : 'orange'), rank: t.rank })); if (m.solo.rank && m.solo.rank > 5) m.board.push({ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: m.solo.rank }); }
+  else if (m.solo && !m.solo.rivals) { me.rank = m.solo.rank || 0; me.of = m.solo.of; m.board = m.solo.top.map((t, i) => ({ id: 'top' + i, name: t.name, score: t.score, correct: t.correct, color: (t.name === me.name && t.score === me.score) ? me.color : (i === 0 ? 'yellow' : i === 1 ? 'white' : 'orange'), rank: t.rank })); if (m.solo.rank && m.solo.rank > 5) m.board.push({ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: m.solo.rank }); }
   $('#sr-winner').hidden = false; $('#sr-winner').textContent = me.rank === 1 && !localMode ? 'WINNER!' : 'RACE COMPLETE'; $('#sr-winner').classList.toggle('lose', me.rank !== 1 || localMode);
   const g3 = $('#sr-3d'); g3.hidden = false; const got3d = Preview.mountPodium(g3, m.board.slice(0, 3), me.id); g3.hidden = !got3d;
   const pod = $('#sr-podium'); pod.replaceChildren(); pod.hidden = got3d;
@@ -457,7 +459,7 @@ function studentResults(m) {
   stat('Accuracy · الدقة', me.accuracy + '%'); stat('Fastest · أسرع إجابة', me.fastest != null ? (me.fastest / 1000).toFixed(1) + ' ث' : '—');
   stat('Level · المستوى', levelAr(me.level));
   $('#sr-rows').closest('.card').hidden = localMode;
-  $('#sr-msg').textContent = localMode ? 'صوّري الشاشة دي وابعتيها للمعلمة علشان تسجّل درجتك.' : me.rank === 1 ? 'أنتِ/أنت أول واحد عدّى خط النهاية. مبروك!' : me.accuracy >= 75 ? 'نتيجة قوية. جرّب تاني وهتاخد المركز الأول.' : 'كمّل تدريب، والسباق الجاي فرصتك.';
+  $('#sr-msg').textContent = (m.solo && m.solo.rivals ? 'المنافسين في السباق دول سائقين بالكمبيوتر. ' : '') + (localMode ? 'صوّري الشاشة دي وابعتيها للمعلمة علشان تسجّل درجتك.' : me.rank === 1 ? 'أنتِ/أنت أول واحد عدّى خط النهاية. مبروك!' : me.accuracy >= 75 ? 'نتيجة قوية. جرّب تاني وهتاخد المركز الأول.' : 'كمّل تدريب، والسباق الجاي فرصتك.');
   const body = $('#sr-rows'); body.replaceChildren();
   m.board.forEach((r) => body.append(h('tr', { class: r.id === me.id ? 'me' : '' }, h('td', { text: String(r.rank) }), h('td', { text: r.name }), h('td', { text: String(r.score) }), h('td', { text: r.correct + '/' + m.total }))));
 }
@@ -550,19 +552,12 @@ function renderBank() {
 $('#b-add').addEventListener('click', () => openEditor(null));
 $('#b-export').addEventListener('click', () => download('questions.json', JSON.stringify(bank, null, 1), 'application/json'));
 $('#b-import').addEventListener('click', () => $('#b-file').click());
-$('#b-file').addEventListener('change', (e) => {
-  const f = e.target.files[0]; if (!f) return; const rd = new FileReader();
-  rd.onload = () => {
-    try {
-      const a = JSON.parse(rd.result); if (!Array.isArray(a)) throw new Error('x');
-      const add = a.filter((q) => q && q.q && (Array.isArray(q.choices) || Array.isArray(q.accepted))).map((q) => ({ id: uid(), type: q.type === 'tf' ? 'tf' : q.type === 'short' ? 'short' : 'mcq', accepted: Array.isArray(q.accepted) ? q.accepted.map(String) : [], q: String(q.q), code: String(q.code || ''), choices: (q.choices || []).map(String).slice(0, 4), answer: Number(q.answer) || 0, secs: Number(q.secs) || 20, points: Number(q.points) || 100, category: String(q.category || ''), difficulty: DIFF[q.difficulty] ? q.difficulty : 'medium', at: Date.now() }));
-      bank = bank.concat(add); Bank.save(bank); renderBank(); alert2('اتضاف ' + add.length + ' سؤال.');
-    } catch (err) { alert2('الملف مش مضبوط.'); }
-  };
-  rd.readAsText(f); e.target.value = '';
-});
+$('#b-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) importFile(f); });
 function download(name, text, type) {
-  const url = URL.createObjectURL(new Blob([text], { type })); const a = h('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  (async () => {
+    try { const d = window.claude && window.claude.use ? await window.claude.use('downloads') : null; if (d) { await d.save({ filename: name, data: text }); return; } } catch (e) { if (e && e.code === 'declined') return; }
+    const url = URL.createObjectURL(new Blob([text], { type })); const a = h('a', { href: url, download: name }); document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  })();
 }
 
 /* ----- question editor ----- */
@@ -633,11 +628,7 @@ function renderPick() {
 function persistSel() { store.set('sbq-selected', JSON.stringify([...selected])); store.set('sbq-order', JSON.stringify(order)); $('#g-count').textContent = order.length + ' سؤال'; }
 $('#g-all').addEventListener('click', () => { selected = new Set(bank.map((q) => q.id)); renderPick(); });
 $('#g-none').addEventListener('click', () => { selected = new Set(); order = []; renderPick(); });
-$('#g-create').addEventListener('click', () => {
-  syncOrder(); const qs = order.map((id) => { const q = bank.find((x) => x.id === id); const o = ov[id] || {}; return { ...q, secs: o.secs || q.secs, points: o.points || q.points }; }); const err = $('#g-err'); err.hidden = true;
-  if (!qs.length) { err.textContent = 'اختاري سؤالًا واحدًا على الأقل.'; err.hidden = false; return; }
-  whenOpen(() => send({ t: 'publish', pass: S.pass, game: { title: $('#g-title').value.trim() || 'سباق المعرفة', settings: { shuffleQuestions: $('#g-shq').checked, shuffleChoices: $('#g-shc').checked }, questions: qs } }));
-});
+$('#g-create').addEventListener('click', () => { const game = buildGame(); if (game) shareGame(game); });
 on('created', (m) => {
   if (S.role !== 'teacher') return;
   S.teacher = { code: m.code, tkey: m.tkey }; sess.set('sbq-teacher', S.teacher); $('#conn').hidden = true;
@@ -702,9 +693,182 @@ $('#tv-csv').addEventListener('click', () => {
 });
 $('#tv-new').addEventListener('click', () => { send({ t: 'close' }); S.teacher = null; sess.del('sbq-teacher'); T.results = null; openDash(); });
 
+/* ===== versions, file import, share-by-link ===== */
+const LOCAL = window.__LOCAL || null;
+const Games = { load() { try { return JSON.parse(store.get('sbq-games')) || []; } catch (e) { return []; } }, save(x) { store.set('sbq-games', JSON.stringify(x)); } };
+let games = Games.load();
+function buildGame() {
+  syncOrder();
+  const qs = order.map((id) => { const q = bank.find((x) => x.id === id); const o = ov[id] || {}; return { type: q.type, accepted: q.accepted || [], q: q.q, code: q.code, choices: q.choices, answer: q.answer, secs: o.secs || q.secs, points: o.points || q.points, category: q.category, difficulty: q.difficulty }; });
+  const err = $('#g-err'); err.hidden = true;
+  if (!qs.length) { err.textContent = 'اختاري سؤالًا واحدًا على الأقل.'; err.hidden = false; return null; }
+  return { title: $('#g-title').value.trim() || 'سباق المعرفة', settings: { shuffleQuestions: $('#g-shq').checked, shuffleChoices: $('#g-shc').checked, count: Number($('#g-limit').value) || 0, lang: $('#g-lang').value }, questions: qs };
+}
+/* the whole game travels inside the link: compact JSON -> deflate -> base64url (letters, digits, - and _ only) */
+const b64u = {
+  enc(bytes) { let s = ''; for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  dec(str) { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; const s = atob(str), out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; },
+};
+function compactGame(g) {
+  return { t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0],
+    q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') o.x = q.accepted; if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
+}
+function expandGame(c) {
+  return { title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar' },
+    questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
+}
+async function pack(game) {
+  const raw = new TextEncoder().encode(JSON.stringify(compactGame(game)));
+  if (typeof CompressionStream === 'function') { try { const buf = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer()); return 'z' + b64u.enc(buf); } catch (e) { /* fall through */ } }
+  return 'r' + b64u.enc(raw);
+}
+async function unpack(tok) {
+  const bytes = b64u.dec(tok.slice(1)); let raw = bytes;
+  if (tok[0] === 'z') raw = new Uint8Array(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer());
+  return JSON.parse(new TextDecoder().decode(raw));
+}
+function showPub(link, note, code) {
+  const box = $('#pub-box'); box.hidden = false;
+  $('#pub-title').textContent = 'اللعبة جاهزة ✓'; $('#pub-note').textContent = note; $('#pub-link').value = link;
+  const qrEl = $('#pub-qr'); qrEl.textContent = '';
+  if (link.length < 900) { try { const qr = qrcode(0, 'L'); qr.addData(link); qr.make(); qrEl.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 }); } catch (e) { qrEl.textContent = ''; } }
+  $('#pub-codebox').hidden = !code; $('#pub-code').value = code || '';
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+async function shareGame(game) {
+  if (!LOCAL) { whenOpen(() => send({ t: 'publish', pass: S.pass, game })); return; }
+  const g = LOCAL.sanitize(game);
+  if (!g.questions.length) { const e = $('#g-err'); e.textContent = 'مفيش أسئلة صالحة في اللعبة.'; e.hidden = false; return; }
+  try {
+    const tok = await pack(g), link = LOCAL.base + '#' + tok;
+    showPub(link, 'ابعتي الرابط للطلاب (الأسئلة جوّه الرابط نفسه). كل لعبة ليها رابط مختلف. ' + (link.length < 900 ? '' : 'الرابط طويل شوية علشان الأسئلة كتير، فابعتيه بالنسخ بدل الـ QR.'), tok);
+  } catch (e) { const x = $('#g-err'); x.textContent = 'ما قدرناش نعمل الرابط.'; x.hidden = false; }
+}
+$('#pub-copycode').addEventListener('click', () => { const i = $('#pub-code'); i.select(); try { navigator.clipboard.writeText(i.value).then(() => alert2('اتنسخ الكود')); } catch (e) { /* ignore */ } });
+$('#g-try').addEventListener('click', () => {
+  const game = buildGame(); if (!game) return;
+  if (LOCAL) { LOCAL.setGame(LOCAL.sanitize(game)); refreshJoinTitle(); openJoin(); alert2('لعبتك اتحمّلت. اكتبي اسمك وجرّبي.'); }
+  else alert2('التجربة متاحة في النسخة اللي بتتشارك بلينك. هنا انشري اللعبة وادخلي من لينك الطلاب.');
+});
+$('#g-save').addEventListener('click', () => {
+  const game = buildGame(); if (!game) return;
+  let name = game.title, k = 2; while (games.some((x) => x.name === name)) name = game.title + ' ' + k++;
+  games.unshift({ id: uid(), name, at: Date.now(), game }); Games.save(games); renderGames(); alert2('اتحفظت نسخة: ' + name);
+});
+function loadGameIntoBuilder(item) {
+  const g = item.game; const ids = [];
+  g.questions.forEach((q) => {
+    let hit = bank.find((b) => b.type === q.type && b.q === q.q && (b.choices || []).join('|') === (q.choices || []).join('|'));
+    if (!hit) { hit = { id: uid(), at: Date.now() + ids.length, type: q.type, accepted: q.accepted || [], q: q.q, code: q.code || '', choices: (q.choices || []).slice(), answer: q.answer, secs: q.secs, points: q.points, category: q.category || '', difficulty: q.difficulty || 'medium' }; bank.push(hit); }
+    ids.push(hit.id); ov[hit.id] = { secs: q.secs, points: q.points };
+  });
+  Bank.save(bank); selected = new Set(ids); order = ids.slice();
+  $('#g-title').value = g.title; $('#g-shq').checked = !!g.settings.shuffleQuestions; $('#g-shc').checked = !!g.settings.shuffleChoices; $('#g-limit').value = g.settings.count || ''; $('#g-lang').value = g.settings.lang === 'en' ? 'en' : 'ar';
+  persistSel(); renderPick(); window.scrollTo(0, 0); alert2('اتحمّلت «' + item.name + '» في المحرر.');
+}
+function renderGames() {
+  const box = $('#sg-list'); box.replaceChildren(); $('#sg-count').textContent = games.length + ' نسخة';
+  if (!games.length) box.append(h('p', { class: 'hint', text: 'لسه مفيش نسخ محفوظة. جهّزي لعبة وادوسي «حفظ كنسخة».' }));
+  games.forEach((item) => {
+    const g = item.game, st = g.settings || {};
+    const del = h('button', { class: 'btn btn-red btn-sm', type: 'button', text: 'حذف' });
+    del.addEventListener('click', () => { if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'تأكيد؟'; setTimeout(() => { delete del.dataset.armed; del.textContent = 'حذف'; }, 3000); return; } games = games.filter((x) => x.id !== item.id); Games.save(games); renderGames(); });
+    box.append(h('div', { class: 'qi', style: 'grid-template-columns:1fr auto' },
+      h('div', {}, h('div', { class: 'qt', text: item.name, dir: 'auto' }), h('div', { class: 'qc' }, h('span', { class: 'chip', text: g.questions.length + ' سؤال' }), st.count ? h('span', { class: 'chip', text: 'بيظهر ' + st.count }) : null, h('span', { class: 'chip', text: st.lang === 'en' ? 'English' : 'عربي' }))),
+      h('div', { class: 'acts', style: 'flex-direction:column' },
+        h('button', { class: 'btn btn-blue btn-sm', type: 'button', text: LOCAL ? 'رابط الطلاب' : 'نشر', onclick: () => shareGame(g) }),
+        h('button', { class: 'btn btn-ghost btn-sm', type: 'button', text: 'تعديل', onclick: () => loadGameIntoBuilder(item) }), del)));
+  });
+}
+/* ----- question files (Excel / CSV / JSON) ----- */
+const HDR = {
+  q: ['question', 'questions', 'q', 'text', 'السؤال', 'سؤال'], type: ['type', 'النوع'], ans: ['answer', 'correct', 'correct answer', 'الاجابه', 'الاجابه الصحيحه', 'الاجابة', 'الإجابة', 'الإجابة الصحيحة'],
+  secs: ['seconds', 'secs', 'time', 'الوقت', 'ثواني'], pts: ['points', 'score', 'النقاط'], cat: ['category', 'topic', 'التصنيف'], code: ['code', 'كود'],
+};
+const nz = (v) => String(v == null ? '' : v).trim();
+const nk = (v) => nz(v).toLowerCase().replace(/[إأآ]/g, 'ا').replace(/ة/g, 'ه');
+function optIndex(k) { const m = k.match(/^(?:option|choice|opt|الاختيار|اختيار)?\s*([a-d1-4])$/); if (m) return 'abcd1234'.indexOf(m[1]) % 4; return /^(ا|ب|ج|د)$/.test(k) ? 'ابجد'.indexOf(k) : -1; }
+function rowsToQuestions(rows) {
+  rows = rows.filter((r) => r.some((c) => nz(c) !== ''));
+  if (!rows.length) return { qs: [], skipped: 0 };
+  let col = {}, start = 0; const head = rows[0].map(nk);
+  const find = (names) => head.findIndex((k) => names.map(nk).includes(k));
+  if (find(HDR.q) >= 0) {
+    start = 1; col.q = find(HDR.q); col.type = find(HDR.type); col.ans = find(HDR.ans); col.secs = find(HDR.secs); col.pts = find(HDR.pts); col.cat = find(HDR.cat); col.code = find(HDR.code); col.opt = [-1, -1, -1, -1];
+    head.forEach((k, i) => { const o = optIndex(k); if (o >= 0 && col.opt[o] < 0) col.opt[o] = i; });
+  } else { col = { q: 0, opt: [1, 2, 3, 4], ans: 5, type: -1, secs: 6, pts: 7, cat: -1, code: -1 }; }
+  const qs = []; let skipped = 0;
+  rows.slice(start).forEach((r) => {
+    const text = nz(r[col.q]); if (!text) return;
+    const opts = col.opt.map((i) => (i >= 0 ? nz(r[i]) : '')); const ans = nz(col.ans >= 0 ? r[col.ans] : ''); const an = nk(ans);
+    let type = nk(col.type >= 0 ? r[col.type] : '');
+    type = /^(tf|true|truefalse|true\/false|true false|صح|صح\/غلط|صح او غلط)/.test(type) ? 'tf' : /^(short|text|answer|قصير|اجابه قصيره)/.test(type) ? 'short' : /^(mcq|multiple|choice|اختيار)/.test(type) ? 'mcq' : '';
+    const nOpts = opts.filter(Boolean).length;
+    if (!type) type = nOpts >= 2 ? 'mcq' : (['true', 't', 'false', 'f', 'صح', 'صحيح', 'غلط', 'خطا', 'خطأ'].includes(an) ? 'tf' : 'short');
+    const base = { q: text, code: col.code >= 0 ? nz(r[col.code]) : '', secs: clamp(Number(col.secs >= 0 ? r[col.secs] : 0) || 20, 5, 180), points: clamp(Number(col.pts >= 0 ? r[col.pts] : 0) || 100, 10, 1000), category: col.cat >= 0 ? nz(r[col.cat]) : '', difficulty: 'medium' };
+    if (type === 'short') { const acc = ans.split(/[|;؛\n]/).map((x) => x.trim()).filter(Boolean); if (!acc.length) { skipped++; return; } qs.push({ ...base, type, accepted: acc, choices: [], answer: 0 }); return; }
+    if (type === 'tf') { const yes = ['true', 't', 'صح', 'صحيح', 'yes', 'نعم', '1'].includes(an), no = ['false', 'f', 'غلط', 'خطا', 'خطأ', 'no', 'لا', '0'].includes(an); if (!yes && !no) { skipped++; return; } qs.push({ ...base, type, accepted: [], choices: ['صح', 'غلط'], answer: yes ? 0 : 1 }); return; }
+    let idx = -1; if (/^[a-d]$/.test(an)) idx = 'abcd'.indexOf(an); else if (/^[1-4]$/.test(an)) idx = Number(an) - 1; else if (/^[ابجد]$/.test(an)) idx = 'ابجد'.indexOf(an); else idx = opts.findIndex((o) => o && nk(o) === an);
+    if (nOpts < 2 || idx < 0 || !opts[idx]) { skipped++; return; }
+    qs.push({ ...base, type: 'mcq', accepted: [], choices: opts, answer: idx });
+  });
+  return { qs, skipped };
+}
+function addToBank(list) { const add = list.map((q, i) => ({ id: uid(), at: Date.now() + i, ...q })); bank = bank.concat(add); add.forEach((q) => selected.add(q.id)); Bank.save(bank); persistSel(); return add.length; }
+function importFile(f) {
+  const ext = (f.name.split('.').pop() || '').toLowerCase(); const rd = new FileReader();
+  rd.onerror = () => alert2('ما قدرناش نقرا الملف.');
+  if (ext === 'json') {
+    rd.onload = () => {
+      try {
+        const a = JSON.parse(rd.result); if (!Array.isArray(a)) throw new Error('x');
+        const ok = a.filter((q) => q && q.q && (Array.isArray(q.choices) || Array.isArray(q.accepted))).map((q) => ({ type: q.type === 'tf' ? 'tf' : q.type === 'short' ? 'short' : 'mcq', accepted: Array.isArray(q.accepted) ? q.accepted.map(String) : [], q: String(q.q), code: String(q.code || ''), choices: (q.choices || []).map(String).slice(0, 4), answer: Number(q.answer) || 0, secs: Number(q.secs) || 20, points: Number(q.points) || 100, category: String(q.category || ''), difficulty: DIFF[q.difficulty] ? q.difficulty : 'medium' }));
+        const n = addToBank(ok); renderBank(); alert2('اتضاف ' + n + ' سؤال.');
+      } catch (err) { alert2('الملف مش مضبوط.'); }
+    };
+    rd.readAsText(f); return;
+  }
+  if (!window.XLSX) { alert2('مكتبة Excel ما اتحمّلتش. جرّبي ملف CSV أو JSON.'); return; }
+  rd.onload = () => {
+    try {
+      const wb = XLSX.read(rd.result, { type: 'array' }); const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: '' });
+      const { qs, skipped } = rowsToQuestions(rows); const n = addToBank(qs); renderBank();
+      alert2(n ? 'اتضاف ' + n + ' سؤال' + (skipped ? ' (وتخطّينا ' + skipped + ' صف ناقص أو مش مفهوم)' : '') + '.' : 'ما لقيناش أسئلة صالحة في الملف. دوسي «نموذج الملف» تشوفي الشكل المطلوب.');
+    } catch (err) { alert2('الملف مش مضبوط.'); }
+  };
+  rd.readAsArrayBuffer(f);
+}
+$('#b-tpl').addEventListener('click', () => {
+  const rows = [['Type', 'Question', 'A', 'B', 'C', 'D', 'Answer', 'Seconds', 'Points', 'Category'],
+    ['mcq', 'What is the capital of Egypt?', 'Alexandria', 'Cairo', 'Luxor', 'Aswan', 'B', 20, 100, 'General'],
+    ['tf', 'The sun is a star.', '', '', '', '', 'True', 15, 100, 'Science'],
+    ['short', 'ما عاصمة مصر؟', '', '', '', '', 'القاهرة|Cairo', 25, 150, 'عام']];
+  const esc = (v) => '"' + String(v).replace(/"/g, '""') + '"';
+  download('questions-template.csv', '﻿' + rows.map((r) => r.map(esc).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+});
+
+/* ----- local (shared-link) mode ----- */
+function refreshJoinTitle() { if (!LOCAL) return; const g = LOCAL.getGame(); const n = g.settings.count && g.settings.count < g.questions.length ? g.settings.count : g.questions.length; $('#j-gametitle').textContent = g.title + ' · ' + n + ' questions'; }
+async function loadToken(tok) {
+  try {
+    const g = LOCAL.sanitize(expandGame(await unpack(tok.trim()))); if (!g.questions.length) throw new Error('empty');
+    LOCAL.setGame(g); refreshJoinTitle(); $('#j-err').hidden = true; return true;
+  } catch (e) { const x = $('#j-err'); x.textContent = 'This game link or code is not valid.'; x.hidden = false; return false; }
+}
+function initLocal() {
+  if (!LOCAL) return;
+  $('#j-codebox').hidden = false; refreshJoinTitle();
+  const fromHash = () => { const t = (location.hash || '').replace(/^#/, ''); if (t.length > 8 && /^[zr][A-Za-z0-9_-]+$/.test(t)) loadToken(t); };
+  fromHash(); window.addEventListener('hashchange', fromHash);
+  $('#j-loadcode').addEventListener('click', async () => { const v = $('#j-gamecode').value.replace(/\s+/g, ''); if (v && await loadToken(v)) { $('#j-codebox').open = false; alert2('Game loaded'); } });
+  $$('#v-tdash .tab[data-t="res"]').forEach((b) => { b.hidden = true; });
+}
+renderGames();
+
 /* ----- publish + results (teacher) ----- */
 on('published', (m) => {
-  const box = $('#pub-box'); box.hidden = false;
+  const box = $('#pub-box'); box.hidden = false; $('#pub-codebox').hidden = true;
   $('#pub-title').textContent = 'اتنشرت اللعبة ✓  (' + m.n + ' سؤال)';
   $('#pub-note').textContent = m.saved ? 'اتحفظت كمان في جدول Google Sheets، فمش هتضيع لو السيرفر عمل restart.'
     : (m.err === 'nosheet' ? 'تنبيه: جدول Google Sheets لسه متربطش، فاللعبة محفوظة مؤقتًا على السيرفر وممكن تضيع لو السيرفر عمل restart. اربطي الجدول من الخطوات في ملف README.' : 'تنبيه: ما قدرناش نحفظ اللعبة في الجدول (' + m.err + '). اللعبة شغالة دلوقتي بس ممكن تضيع لو السيرفر عمل restart.');
@@ -743,15 +907,14 @@ $('#r-csv').addEventListener('click', () => {
   const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const rows = Res.rows.slice().sort(resCmp).map((r, i) => [i + 1, r.name, r.score, r.wrong, r.correct, r.total, r.accuracy, r.level, r.fastest, r.timeSec, fmtDate(r.at)]);
   const csv = '\ufeff' + [['Rank', 'Name', 'Score', 'Wrong', 'Correct', 'Questions', 'Accuracy %', 'Level', 'Fastest (s)', 'Total time (s)', 'Date']].concat(rows).map((r) => r.map(esc).join(',')).join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const l = h('a', { href: url, download: 'results.csv' }); document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+  download('results.csv', csv, 'text/csv;charset=utf-8');
 });
 
 /* ================= boot ================= */
 (function boot() {
   if (S.student && S.student.token) { S.role = 'student'; show('slobby'); whenOpen(() => {}); return; }
   if (S.teacher && S.teacher.tkey) { S.role = 'teacher'; show('tlive'); whenOpen(() => {}); return; }
-  openJoin();
+  openJoin(); initLocal();
 })();
 window.__sbq = { S, Race, Bank, get bank() { return bank; } };
 })();

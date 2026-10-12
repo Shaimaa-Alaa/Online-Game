@@ -47,7 +47,7 @@ function sanitizeGame(g) {
   g = g || {};
   const title = cleanText(g.title, 60).trim() || 'سباق المعرفة';
   const st = g.settings || {};
-  const settings = { shuffleQuestions: !!st.shuffleQuestions, shuffleChoices: !!st.shuffleChoices };
+  const settings = { shuffleQuestions: !!st.shuffleQuestions, shuffleChoices: !!st.shuffleChoices, count: clamp(parseInt(st.count, 10) || 0, 0, 100), lang: st.lang === 'en' ? 'en' : 'ar' };
   const qs = [];
   (Array.isArray(g.questions) ? g.questions : []).slice(0, 100).forEach((q, i) => {
     if (!q) return;
@@ -59,7 +59,7 @@ function sanitizeGame(g) {
       accepted = (Array.isArray(q.accepted) ? q.accepted : [String(q.accepted || q.answerText || '')]).join('|').split(/[|\n،]/).map((a) => cleanText(a, 100).trim()).filter(Boolean).slice(0, 8);
       if (!accepted.length) return;
       choices = []; answer = 0;
-    } else if (type === 'tf') { choices = ['صح', 'غلط']; if (!(answer === 0 || answer === 1)) answer = 0; }
+    } else if (type === 'tf') { choices = settings.lang === 'en' ? ['True', 'False'] : ['صح', 'غلط']; if (!(answer === 0 || answer === 1)) answer = 0; }
     else {
       choices = (Array.isArray(q.choices) ? q.choices : []).slice(0, 4).map((c) => cleanText(c, 200).trim());
       while (choices.length < 4) choices.push('');
@@ -87,6 +87,8 @@ function judge(q, a) {
 /* the questions as they will be played: order/choices fixed once per room so every student sees the same thing */
 function prepareRound(game) {
   let qs = game.questions.map((q) => ({ ...q }));
+  const cnt = game.settings.count;
+  if (cnt > 0 && cnt < qs.length) { const keep = new Set(shuffle(qs.map((q, i) => i)).slice(0, cnt)); qs = qs.filter((q, i) => keep.has(i)); }   /* "play N of the questions": a random N, original order kept */
   if (game.settings.shuffleQuestions) qs = shuffle(qs);
   qs = qs.map((q) => {
     if (q.type === 'short') return q;
@@ -221,7 +223,7 @@ function startGame(room, cd) {
   if (!room.qs.length) return;
   room.state = 'countdown'; room.startAt = now() + cd; room.round = -1;
   room.players.forEach((p) => { p.score = 0; p.correct = 0; p.wrong = 0; p.times = []; p.fastest = null; });
-  broadcast(room, { t: 'countdown', startAt: room.startAt, serverNow: now(), total: room.qs.length });
+  broadcast(room, { t: 'countdown', startAt: room.startAt, serverNow: now(), total: room.qs.length, lang: room.game.settings.lang });
   pushLobby(room);
   room.timer = setTimeout(() => nextQuestion(room), cd + 1800);
 }
@@ -292,7 +294,7 @@ function finish(room) {
 /* ---------------- sockets ---------------- */
 function snapshotFor(room, ws, isTeacher, player) {
   send(ws, lobbyMsg(room));
-  if (room.state === 'countdown') send(ws, { t: 'countdown', startAt: room.startAt, serverNow: now(), total: room.qs.length });
+  if (room.state === 'countdown') send(ws, { t: 'countdown', startAt: room.startAt, serverNow: now(), total: room.qs.length, lang: room.game.settings.lang });
   if (room.state === 'question') {
     send(ws, questionMsg(room));
     if (player && room.answers.has(player.id)) { const a = room.answers.get(player.id); send(ws, { t: 'ack', n: room.round, choice: a.choice, text: a.text, ok: a.ok, pts: a.pts }); }

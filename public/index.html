@@ -41,6 +41,7 @@
         <div class="field"><label for="j-name">Enter your name</label><input id="j-name" type="text" maxlength="18" dir="auto" placeholder="Enter your name" autocomplete="off" autocapitalize="words"></div>
         <div class="field"><span class="lbl">Pick your car colour</span><div class="swatches" id="j-sw" role="radiogroup" aria-label="لون العربية"></div></div>
         <p class="err" id="j-err" role="alert" hidden></p>
+        <details id="j-codebox" hidden><summary class="hint" style="cursor:pointer">Have a game code?</summary><textarea id="j-gamecode" rows="2" dir="ltr" style="width:100%;margin-top:8px;font-family:var(--mono)" placeholder="Paste the game code here"></textarea><button class="btn btn-ghost btn-sm" id="j-loadcode" type="button" style="margin-top:6px">Load game</button></details>
         <button class="btn btn-go btn-lg" type="submit" id="j-go">START THE RACE</button>
       </form>
       <div class="stage-pv" id="pv-join" aria-hidden="true"><div class="roadline"></div></div>
@@ -121,9 +122,16 @@
     </div>
 
     <div id="tab-game">
+      <div class="card" id="sg-card" style="margin-bottom:14px">
+        <h3 style="font-weight:900;margin-bottom:6px">نسخ اللعبة المحفوظة <span class="chip" id="sg-count"></span></h3>
+        <p class="hint" style="margin-bottom:10px">كل نسخة ليها رابط خاص بيها (مثلًا: عامة، برمجة، صح/غلط). الأسئلة بتتخزن جوّه الرابط نفسه.</p>
+        <div class="qlist" id="sg-list"></div>
+      </div>
       <div class="card" style="display:grid;gap:16px">
         <div class="grid2">
           <div class="field"><label for="g-title">اسم اللعبة</label><input id="g-title" type="text" maxlength="60" value="سباق المعرفة"></div>
+          <div class="field"><label for="g-lang">لغة اللعبة</label><select id="g-lang"><option value="ar">عربي</option><option value="en">English</option></select></div>
+          <div class="field"><label for="g-limit">عدد الأسئلة اللي هتظهر للطالب</label><input id="g-limit" type="number" min="1" max="100" inputmode="numeric" placeholder="كلها"></div>
           <div class="field"><span class="lbl">إعدادات</span>
             <label><input type="checkbox" id="g-shq"> ترتيب الأسئلة عشوائي</label>
             <label><input type="checkbox" id="g-shc" checked> ترتيب الإجابات عشوائي</label>
@@ -141,8 +149,13 @@
           <div class="qrbox" id="pub-qr"></div>
           <div class="field" style="width:100%"><label for="pub-link">رابط الطلاب (ابعتيه أو اعرضي الـ QR)</label><input id="pub-link" type="text" readonly dir="ltr"></div>
           <button class="btn btn-ghost btn-sm" id="pub-copy" type="button">نسخ الرابط</button>
+          <details id="pub-codebox" style="width:100%;text-align:start" hidden><summary class="hint" style="cursor:pointer">كود اللعبة (لو الرابط ما فتحش اللعبة)</summary><textarea id="pub-code" rows="3" readonly dir="ltr" style="width:100%;font-family:var(--mono);margin-top:8px"></textarea><button class="btn btn-ghost btn-sm" id="pub-copycode" type="button" style="margin-top:6px">نسخ الكود</button></details>
         </div>
-        <button class="btn btn-go btn-lg" id="g-create" type="button">PUBLISH GAME · نشر اللعبة للطلاب</button>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-go btn-lg" id="g-create" type="button">PUBLISH GAME · نشر اللعبة للطلاب</button>
+          <button class="btn btn-blue btn-lg" id="g-save" type="button">حفظ كنسخة</button>
+          <button class="btn btn-ghost btn-lg" id="g-try" type="button">جرّبي اللعبة بنفسك</button>
+        </div>
       </div>
     </div>
 
@@ -158,12 +171,13 @@
         <div class="tools" style="margin-top:-4px">
           <button class="btn btn-blue" id="b-add" type="button">CREATE QUESTION · سؤال جديد</button>
           <button class="btn btn-ghost" id="b-export" type="button">تصدير الأسئلة</button>
-          <button class="btn btn-ghost" id="b-import" type="button">استيراد</button>
-          <input type="file" id="b-file" accept="application/json,.json" hidden>
+          <button class="btn btn-ghost" id="b-import" type="button">رفع ملف أسئلة (Excel / CSV / JSON)</button>
+          <button class="btn btn-ghost" id="b-tpl" type="button">نموذج الملف</button>
+          <input type="file" id="b-file" accept=".json,.csv,.tsv,.txt,.xlsx,.xls,application/json,text/csv" hidden>
           <span class="hint" id="b-count"></span>
         </div>
         <div class="qlist" id="b-list"></div>
-        <p class="hint" style="margin-top:12px">الأسئلة محفوظة على متصفحك الحالي. اعملي «تصدير» بين وقت والتاني علشان نسخة احتياطية.</p>
+        <p class="hint" style="margin-top:12px">ملف Excel/CSV: الأعمدة المطلوبة <b dir="ltr">Type, Question, A, B, C, D, Answer, Seconds, Points</b> (النوع: mcq أو tf أو short). دوسي «نموذج الملف» تشوفي مثال. الأسئلة محفوظة على متصفحك الحالي. اعملي «تصدير» بين وقت والتاني علشان نسخة احتياطية.</p>
       </div>
     </div>
 
@@ -256,6 +270,7 @@
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/qrcode.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="race3d.js"></script>
 <script src="scenes.js"></script>
 <script src="app.js"></script>
