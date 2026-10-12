@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: knowledge-race
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: TEACHER_PASSWORD
+        sync: false

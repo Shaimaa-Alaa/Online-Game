@@ -1,0 +1,10 @@
+{
+  "name": "knowledge-race-live",
+  "version": "1.0.0",
+  "description": "سباق المعرفة - مباراة أسئلة حية ثلاثية الأبعاد للمعلمة والطلاب",
+  "main": "server.js",
+  "scripts": { "start": "node server.js", "test": "node test/flow.js && node test/short.js" },
+  "engines": { "node": ">=18" },
+  "dependencies": { "ws": "^8.18.0" },
+  "license": "MIT"
+}

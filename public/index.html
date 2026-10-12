@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>سباق المعرفة</title>
+<meta name="theme-color" content="#070c1f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&family=IBM+Plex+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="conn" id="conn" hidden>الاتصال انقطع… بنحاول نرجّعه</div>
+
+<!-- HOME -->
+<section class="view" id="v-home">
+  <div class="wrap home">
+    <div>
+      <div class="logo"><i><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22V3M4 4h14l-2.5 4L18 12H4"/></svg></i><span>مسابقة حية</span></div>
+      <h1 class="hero-t">سباق المعرفة</h1>
+      <p class="hero-s">جاوب صح وعربيتك تنطلق. تنافس مع زمايلك لحظة بلحظة في سباق ثلاثي الأبعاد.</p>
+      <div class="home-btns">
+        <button class="btn btn-go btn-lg" id="h-join" type="button">JOIN RACE · ادخل السباق</button>
+        <button class="btn btn-ghost btn-lg" id="h-teacher" type="button">TEACHER LOGIN · المعلمة</button>
+      </div>
+    </div>
+    <div class="stage-pv" id="pv-home" aria-hidden="true"><div class="roadline"></div></div>
+  </div>
+</section>
+
+<!-- STUDENT JOIN -->
+<section class="view" id="v-join" hidden>
+  <div class="wrap">
+    <button class="btn btn-ghost btn-sm" type="button" id="j-back">Back</button>
+    <div class="home" style="min-height:auto;margin-top:16px">
+      <form class="card join" id="j-form" autocomplete="off" novalidate dir="ltr">
+        <h2 style="font-weight:900;font-size:2rem">WELCOME TO THE RACE</h2>
+        <div class="field" id="j-codefield"><label for="j-code">Game code</label><input id="j-code" class="code-in" type="text" inputmode="numeric" maxlength="6" placeholder="000000"></div>
+        <div class="field"><label for="j-name">Enter your name</label><input id="j-name" type="text" maxlength="18" dir="auto" placeholder="Enter your name" autocomplete="off" autocapitalize="words"></div>
+        <div class="field"><span class="lbl">Pick your car colour</span><div class="swatches" id="j-sw" role="radiogroup" aria-label="لون العربية"></div></div>
+        <p class="err" id="j-err" role="alert" hidden></p>
+        <button class="btn btn-go btn-lg" type="submit" id="j-go">JOIN RACE</button>
+      </form>
+      <div class="stage-pv" id="pv-join" aria-hidden="true"><div class="roadline"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- STUDENT LOBBY -->
+<section class="view" id="v-slobby" hidden>
+  <div class="wrap">
+    <div class="tbar"><h2 style="font-weight:900;font-size:1.8rem" id="sl-title">RACE LOBBY</h2><span class="chip">الكود <b id="sl-code" style="font-family:var(--mono)"></b></span></div>
+    <div class="lobby">
+      <div class="card">
+        <div class="stage-pv" id="pv-lobby" style="height:260px;min-height:0" aria-hidden="true"><div class="roadline"></div></div>
+        <h3 style="font-weight:900;font-size:1.5rem;margin-top:14px" id="sl-me"></h3>
+        <div class="swatches" id="sl-sw" role="radiogroup" aria-label="لون العربية" style="margin-block:10px"></div>
+        <p class="hint" style="margin-top:10px;display:flex;gap:8px;align-items:center"><span class="pulse"></span><span>Waiting for the teacher to press Start…</span></p>
+      </div>
+      <div class="card"><h3 style="font-weight:900">اللاعبين <span id="sl-count" class="chip"></span></h3><div class="stage-pv grid-pv" id="pv-grid" aria-hidden="true"></div><div class="plist" id="sl-list"></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- RACE -->
+<section class="view" id="v-race" hidden>
+  <div class="racebar"><div class="rb-brand"><span class="rb-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 11h4M8 9v4"/><path d="M15 12h.01M18 10h.01"/><path d="M17.3 5H6.7a4 4 0 0 0-3.9 3.1l-1.4 6.3A3 3 0 0 0 7 16.4l.6-.9h8.8l.6.9a3 3 0 0 0 5.6-2l-1.4-6.3A4 4 0 0 0 17.3 5Z"/></svg></span><div class="rb-t"><b id="bar-title"></b><span>لعبة تعليمية · مباراة حية</span></div></div><div class="rb-act"><button type="button" class="rb-btn" id="fs" aria-label="ملء الشاشة"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button></div></div>
+  <div class="stage" id="stage">
+    <button type="button" class="hud-snd" id="mute" aria-label="كتم الصوت"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H3v6h3l5 4V5Z" fill="currentColor"/><path id="s2-on" d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/><path id="s2-off" d="m16 9 5 6M21 9l-5 6" style="display:none"/></svg></button>
+    <div class="qbox" id="qbox" hidden>
+      <div class="qmeta"><span id="qnum"></span><span class="qtime" id="qtime"></span></div>
+      <div class="timer" id="timer"><i id="timer-fill"></i></div>
+      <p class="qtext" id="qtext"></p>
+      <div class="qchips" id="qchips"></div>
+      <pre class="code" id="qcode" hidden></pre>
+      <div class="choices" id="choices" role="group" aria-label="الإجابات"></div>
+      <p class="feedback" id="fb" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<!-- STUDENT RESULTS -->
+<section class="view" id="v-sresult" hidden>
+  <div class="wrap narrow" style="max-width:760px">
+    <div class="winner" id="sr-winner" hidden>WINNER!</div>
+    <h2 style="font-weight:900;font-size:2rem;text-align:center">RACE RESULTS · نتيجة السباق</h2>
+    <div class="stage-pv podium-pv" id="sr-3d" hidden></div>
+    <div class="podium" id="sr-podium"></div>
+    <div class="card"><h3 style="font-weight:900">نتيجتك</h3><div class="stats" id="sr-stats"></div><p id="sr-msg" class="hint" style="margin-top:12px;font-size:1.05rem"></p></div>
+    <div class="card" style="margin-top:14px"><h3 style="font-weight:900;margin-bottom:10px">ترتيب الجميع</h3><div class="table-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>النقاط</th><th>الصح</th></tr></thead><tbody id="sr-rows"></tbody></table></div></div>
+    <div style="text-align:center;margin-top:18px"><button class="btn btn-go" id="sr-home" type="button">الرجوع للرئيسية</button></div>
+  </div>
+</section>
+
+<!-- TEACHER LOGIN -->
+<section class="view" id="v-tlogin" hidden>
+  <div class="narrow">
+    <button class="btn btn-ghost btn-sm" type="button" id="tl-back">رجوع</button>
+    <form class="card join" id="tl-form" style="margin-top:16px" autocomplete="off">
+      <h2 style="font-weight:900;font-size:1.8rem">دخول المعلمة</h2>
+      <div class="field" id="tl-pass-f"><label for="tl-pass">كلمة السر</label><input id="tl-pass" type="password" autocomplete="current-password"></div>
+      <p class="hint" id="tl-hint">لو السيرفر مفيهوش كلمة سر، دوسي دخول على طول.</p>
+      <p class="err" id="tl-err" hidden></p>
+      <button class="btn btn-blue btn-lg" type="submit">دخول</button>
+    </form>
+  </div>
+</section>
+
+<!-- TEACHER DASHBOARD -->
+<section class="view" id="v-tdash" hidden>
+  <div class="wrap">
+    <div class="tbar">
+      <h2 style="font-weight:900;font-size:1.8rem">لوحة المعلمة</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <button class="btn btn-go btn-sm" id="td-resume" type="button" hidden>الرجوع للغرفة الشغالة</button>
+        <nav class="tabs" role="tablist"><button class="tab" data-t="game" role="tab" type="button">إنشاء لعبة</button><button class="tab" data-t="bank" role="tab" type="button">بنك الأسئلة</button></nav>
+        <button class="btn btn-ghost btn-sm" id="td-out" type="button">خروج</button>
+      </div>
+    </div>
+
+    <div id="tab-game">
+      <div class="card" style="display:grid;gap:16px">
+        <div class="grid2">
+          <div class="field"><label for="g-title">اسم اللعبة</label><input id="g-title" type="text" maxlength="60" value="سباق المعرفة"></div>
+          <div class="field"><span class="lbl">إعدادات</span>
+            <label><input type="checkbox" id="g-shq"> ترتيب الأسئلة عشوائي</label>
+            <label><input type="checkbox" id="g-shc" checked> ترتيب الإجابات عشوائي</label>
+          </div>
+        </div>
+        <div class="tbar" style="margin:0"><h3 style="font-weight:900">اختاري الأسئلة <span class="chip" id="g-count"></span></h3><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="g-all" type="button">الكل</button><button class="btn btn-ghost btn-sm" id="g-none" type="button">ولا واحد</button></div></div>
+        <h3 style="font-weight:900">ترتيب أسئلة اللعبة <span class="hint">(غيّري الترتيب والوقت والنقاط لكل سؤال)</span></h3>
+        <div class="qlist" id="g-order"></div>
+        <h3 style="font-weight:900">أضيفي من بنك الأسئلة</h3>
+        <div class="qlist" id="g-list"></div>
+        <p class="err" id="g-err" hidden></p>
+        <button class="btn btn-go btn-lg" id="g-create" type="button">CREATE GAME · إنشاء اللعبة وأخذ الكود</button>
+      </div>
+    </div>
+
+    <div id="tab-bank" hidden>
+      <div class="card">
+        <div class="tools">
+          <div class="field"><label for="b-search">بحث</label><input id="b-search" type="search" placeholder="اكتبي جزء من السؤال"></div>
+          <div class="field"><label for="b-type">النوع</label><select id="b-type"><option value="">الكل</option><option value="mcq">اختيار من متعدد</option><option value="tf">صح / غلط</option></select></div>
+          <div class="field"><label for="b-diff">الصعوبة</label><select id="b-diff"><option value="">الكل</option><option value="easy">سهل</option><option value="medium">متوسط</option><option value="hard">صعب</option></select></div>
+          <div class="field"><label for="b-cat">التصنيف</label><select id="b-cat"><option value="">الكل</option></select></div>
+          <div class="field"><label for="b-sort">ترتيب</label><select id="b-sort"><option value="new">الأحدث</option><option value="old">الأقدم</option><option value="diff">الصعوبة</option><option value="type">النوع</option></select></div>
+        </div>
+        <div class="tools" style="margin-top:-4px">
+          <button class="btn btn-blue" id="b-add" type="button">CREATE QUESTION · سؤال جديد</button>
+          <button class="btn btn-ghost" id="b-export" type="button">تصدير الأسئلة</button>
+          <button class="btn btn-ghost" id="b-import" type="button">استيراد</button>
+          <input type="file" id="b-file" accept="application/json,.json" hidden>
+          <span class="hint" id="b-count"></span>
+        </div>
+        <div class="qlist" id="b-list"></div>
+        <p class="hint" style="margin-top:12px">الأسئلة محفوظة على متصفحك الحالي. اعملي «تصدير» بين وقت والتاني علشان نسخة احتياطية.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- QUESTION EDITOR -->
+<div class="modal" id="m-q" hidden>
+  <form class="card" id="mq-form" style="display:grid;gap:14px" novalidate>
+    <h3 style="font-weight:900;font-size:1.4rem" id="mq-title">سؤال جديد</h3>
+    <div class="field"><span class="lbl">نوع السؤال</span><div class="seg"><label><input type="radio" name="mq-type" value="mcq" checked> اختيار من متعدد</label><label><input type="radio" name="mq-type" value="tf"> صح / غلط</label><label><input type="radio" name="mq-type" value="short"> إجابة قصيرة</label></div></div>
+    <div class="field"><label for="mq-q">السؤال</label><textarea id="mq-q" rows="2" maxlength="500"></textarea></div>
+    <div class="field"><label for="mq-code">كود (اختياري)</label><textarea id="mq-code" rows="2" dir="ltr" spellcheck="false" style="font-family:var(--mono)" maxlength="800"></textarea></div>
+    <div id="mq-mcq" style="display:grid;gap:8px">
+      <div class="copt"><span class="ck" style="background:#ef4444">A</span><input type="text" id="mq-a0" maxlength="200" dir="auto"></div>
+      <div class="copt"><span class="ck" style="background:#3b82f6">B</span><input type="text" id="mq-a1" maxlength="200" dir="auto"></div>
+      <div class="copt"><span class="ck" style="background:#d99a0a">C</span><input type="text" id="mq-a2" maxlength="200" dir="auto"></div>
+      <div class="copt"><span class="ck" style="background:#22c55e">D</span><input type="text" id="mq-a3" maxlength="200" dir="auto"></div>
+      <div class="field"><label for="mq-ans">الإجابة الصحيحة</label><select id="mq-ans"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></div>
+    </div>
+    <div id="mq-short" hidden class="field"><label for="mq-acc">الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)</label><textarea id="mq-acc" rows="3" maxlength="400" dir="auto" placeholder="القاهرة&#10;Cairo"></textarea><span class="hint">التصحيح بيتجاهل التشكيل والهمزات والمسافات الزايدة وحروف الكبير والصغير.</span></div>
+    <div id="mq-tf" hidden class="field"><label for="mq-tfans">الإجابة الصحيحة</label><select id="mq-tfans"><option value="0">صح (True)</option><option value="1">غلط (False)</option></select></div>
+    <div class="grid2">
+      <div class="field"><label for="mq-secs-sel">وقت السؤال</label><select id="mq-secs-sel"><option value="5">5 ث</option><option value="10">10 ث</option><option value="15">15 ث</option><option value="20" selected>20 ث</option><option value="30">30 ث</option><option value="45">45 ث</option><option value="60">60 ث</option><option value="custom">وقت مخصص…</option></select><input id="mq-secs" type="number" min="5" max="180" value="20" hidden aria-label="وقت مخصص بالثواني"></div>
+      <div class="field"><label for="mq-pts">النقاط</label><input id="mq-pts" type="number" min="10" max="1000" step="10" value="100"></div>
+      <div class="field"><label for="mq-cat">التصنيف</label><input id="mq-cat" type="text" maxlength="40" placeholder="مثال: بايثون"></div>
+      <div class="field"><label for="mq-diff">الصعوبة</label><select id="mq-diff"><option value="easy">سهل</option><option value="medium" selected>متوسط</option><option value="hard">صعب</option></select></div>
+    </div>
+    <p class="err" id="mq-err" hidden></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end"><button class="btn btn-ghost" type="button" id="mq-cancel">إلغاء</button><button class="btn btn-go" type="submit">SAVE QUESTION · حفظ</button></div>
+  </form>
+</div>
+
+<!-- TEACHER LIVE -->
+<section class="view" id="v-tlive" hidden>
+  <div class="wrap">
+    <div class="tbar"><h2 style="font-weight:900;font-size:1.8rem" id="tv-title">RACE LOBBY</h2><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" id="tv-dash" type="button">لوحة المعلمة</button><button class="btn btn-red btn-sm" id="tv-close" type="button">إغلاق الغرفة</button></div></div>
+
+    <div id="tv-lobby">
+      <div class="lobby">
+        <div class="card" style="display:grid;gap:14px;justify-items:center;text-align:center">
+          <span class="hint">كود اللعبة</span>
+          <div class="codebox" id="tv-code"></div>
+          <div class="qrbox" id="tv-qr"></div>
+          <div class="field" style="width:100%"><label for="tv-link">رابط الطلاب</label><input id="tv-link" type="text" readonly dir="ltr"></div>
+          <button class="btn btn-ghost btn-sm" id="tv-copy" type="button">نسخ الرابط</button>
+        </div>
+        <div class="card">
+          <div class="tbar" style="margin-bottom:8px"><h3 style="font-weight:900">RACE LOBBY · Players: <span id="tv-n">0</span></h3><span class="chip" id="tv-ready"></span></div>
+          <div class="stage-pv grid-pv" id="tv-grid" aria-hidden="true"></div>
+          <div class="plist" id="tv-list"></div>
+          <button class="btn btn-go btn-lg" id="tv-start" type="button" style="width:100%;margin-top:16px" disabled>START RACE · ابدئي السباق</button>
+          <p class="hint" style="margin-top:8px">أول ما تدوسي ابدأ، الدخول بيتقفل ويبدأ العد التنازلي عند كل الطلاب في نفس اللحظة.</p>
+        </div>
+      </div>
+    </div>
+
+    <div id="tv-live" hidden>
+      <div class="card" style="margin-bottom:14px">
+        <div class="qmeta" style="color:var(--muted)"><span id="tv-qn"></span><span id="tv-time"></span><span id="tv-ans"></span></div>
+        <p class="qtext" id="tv-q" style="text-align:start;color:#fff"></p>
+        <div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-ghost btn-sm" id="tv-skip" type="button">إنهاء السؤال الآن</button></div>
+      </div>
+      <div class="card"><h3 style="font-weight:900;margin-bottom:8px">الترتيب المباشر</h3><div id="tv-lb"></div></div>
+    </div>
+
+    <div id="tv-res" hidden>
+      <div class="sumcards" id="tv-sum"></div>
+      <div class="card">
+        <div class="tbar" style="margin-bottom:8px"><h3 style="font-weight:900">RACE RESULTS</h3><div style="display:flex;gap:8px"><button class="btn btn-blue btn-sm" id="tv-csv" type="button">Export Results · تصدير CSV</button><button class="btn btn-go btn-sm" id="tv-new" type="button">لعبة جديدة</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Rank</th><th>الطالب</th><th>النقاط</th><th>صح</th><th>غلط</th><th>الدقة</th><th>متوسط الوقت</th><th>أسرع إجابة</th><th>المستوى</th></tr></thead><tbody id="tv-rows"></tbody></table></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/qrcode.js"></script>
+<script src="race3d.js"></script>
+<script src="scenes.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
