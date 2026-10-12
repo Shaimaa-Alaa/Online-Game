@@ -306,7 +306,7 @@ on('countdown', (m) => {
   const goIn = m.startAt - nowS();
   let view = null; try { view = R3 ? R3.create($('#stage'), R, { onFrame: engineSet }) : null; } catch (e) { view = null; if (window.console) console.error('race3d create failed', e); }
   if (view) {
-    Race.view = view;
+    Race.view = view; window.__rv = view;
     view.countdown(goIn).then(() => { Race.ready = true; if (Race.pending) { const p = Race.pending; Race.pending = null; showQuestion(p); } });
     [3, 2, 1].forEach((n, i) => setTimeout(() => sfx('beep'), Math.max(0, goIn - n * 1000)));
     setTimeout(() => sfx('go'), Math.max(0, goIn));
@@ -427,7 +427,7 @@ on('reveal', (m) => {
     else { fb.textContent = me.choice < 0 ? TX('الوقت خلص. الإجابة الصحيحة باللون الأخضر.', "Time's up. The correct answer is in green.") : TX('إجابة غلط. الإجابة الصحيحة باللون الأخضر.', 'Wrong. The correct answer is in green.'); fb.className = 'feedback bad'; }
     if (!handled && me.ok) { sfx('good'); sfx('boost'); } else if (!handled && !me.ok && me.choice >= 0) sfx('bad');
     applyBoard(m.board);
-    if (Race.view) { Race.view.sync(handled || me.choice >= 0 ? null : false); if (m.last) Race.view.finalize(); } else updateFlat();
+    if (Race.view) { Race.view.sync(handled || me.choice >= 0 ? null : false, true); if (m.last) Race.view.finalize(); } else updateFlat();
   }
   if (S.role === 'teacher') teacherReveal(m);
 });
