@@ -459,6 +459,15 @@ function studentResults(m) {
   stat('Accuracy · الدقة', me.accuracy + '%'); stat('Fastest · أسرع إجابة', me.fastest != null ? (me.fastest / 1000).toFixed(1) + ' ث' : '—');
   stat('Level · المستوى', levelAr(me.level));
   $('#sr-rows').closest('.card').hidden = localMode;
+  const sendBox = $('#sr-send'); sendBox.hidden = !(m.solo && m.solo.local);
+  if (!sendBox.hidden) {
+    const rec = { e: m.title || '', n: me.name, s: me.score, c: me.correct, w: me.wrong, q: m.total, a: me.accuracy, f: me.fastest, t: Math.round((me.avgTime || 0) * m.total / 1000), d: Date.now() };
+    const code = 'N' + b64u.enc(new TextEncoder().encode(JSON.stringify(rec)));
+    $('#sr-send-t').textContent = TX('ابعتي نتيجتك للمعلمة', 'Send your result to your teacher');
+    $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة علشان درجتك تتسجّل.', 'Copy this code and send it to your teacher so your score is recorded.');
+    $('#sr-code').value = code; $('#sr-copy').textContent = TX('نسخ الكود', 'Copy code'); $('#sr-wa').textContent = TX('إرسال بواتساب', 'Send on WhatsApp');
+    $('#sr-wa').href = 'https://wa.me/?text=' + encodeURIComponent(code);
+  }
   $('#sr-msg').textContent = (m.solo && m.solo.rivals ? 'المنافسين في السباق دول سائقين بالكمبيوتر. ' : '') + (localMode ? 'صوّري الشاشة دي وابعتيها للمعلمة علشان تسجّل درجتك.' : me.rank === 1 ? 'أنتِ/أنت أول واحد عدّى خط النهاية. مبروك!' : me.accuracy >= 75 ? 'نتيجة قوية. جرّب تاني وهتاخد المركز الأول.' : 'كمّل تدريب، والسباق الجاي فرصتك.');
   const body = $('#sr-rows'); body.replaceChildren();
   m.board.forEach((r) => body.append(h('tr', { class: r.id === me.id ? 'me' : '' }, h('td', { text: String(r.rank) }), h('td', { text: r.name }), h('td', { text: String(r.score) }), h('td', { text: r.correct + '/' + m.total }))));
@@ -962,7 +971,7 @@ function initLocal() {
   const fromHash = () => { const t = (location.hash || '').replace(/^#/, ''); if (t.length > 8 && /^[zr][A-Za-z0-9_-]+$/.test(t)) loadToken(t); };
   fromHash(); window.addEventListener('hashchange', fromHash);
   $('#j-loadcode').addEventListener('click', async () => { const v = $('#j-gamecode').value.replace(/\s+/g, ''); if (v && await loadToken(v)) { $('#j-codebox').open = false; alert2('Game loaded'); } });
-  $$('#v-tdash .tab[data-t="res"]').forEach((b) => { b.hidden = true; });
+  $('#r-local').hidden = false;
   initAI();
 }
 renderGames();
@@ -980,7 +989,19 @@ on('published', (m) => {
 $('#pub-copy').addEventListener('click', () => { const i = $('#pub-link'); i.select(); try { navigator.clipboard.writeText(i.value).then(() => alert2('اتنسخ الرابط')); } catch (e) { /* ignore */ } });
 
 const Res = { rows: [], game: null, sheet: null };
-function loadResults() { $('#r-status').textContent = 'بنجيب الدرجات…'; whenOpen(() => send({ t: 'tlist', pass: S.pass })); }
+const LRes = { load() { try { return JSON.parse(store.get('sbq-results')) || []; } catch (e) { return []; } }, save(a) { store.set('sbq-results', JSON.stringify(a)); } };
+const LEVEL_AR = (a) => a >= 90 ? 'ممتاز' : a >= 75 ? 'جيد جدًا' : a >= 50 ? 'جيد' : 'محتاج تدريب';
+function decodeCode(line) {
+  try {
+    line = line.trim(); if (line[0] !== 'N' || line.length < 10) return null;
+    const o = JSON.parse(new TextDecoder().decode(b64u.dec(line.slice(1)))); const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
+    return { id: line, exam: String(o.e || '').slice(0, 60), name: String(o.n || '').slice(0, 40), score: num(o.s, 0), correct: num(o.c, 0), wrong: num(o.w, 0), total: num(o.q, 0), accuracy: num(o.a, 0), level: LEVEL_AR(num(o.a, 0)), fastest: o.f == null ? '' : (num(o.f, 0) / 1000).toFixed(1), timeSec: num(o.t, 0), at: num(o.d, Date.now()) };
+  } catch (e) { return null; }
+}
+function loadResults() {
+  if (LOCAL) { Res.rows = LRes.load(); Res.game = null; paintResults(); return; }
+  $('#r-status').textContent = 'بنجيب الدرجات…'; whenOpen(() => send({ t: 'tlist', pass: S.pass }));
+}
 const resCmp = (a, b) => b.score - a.score || b.correct - a.correct || (a.timeSec || 0) - (b.timeSec || 0) || new Date(a.at) - new Date(b.at);
 const fmtDate = (v) => { const d = new Date(v); return isNaN(d) ? '' : d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }); };
 on('tlist', (m) => {
@@ -988,22 +1009,37 @@ on('tlist', (m) => {
 });
 function paintResults() {
   const q = $('#r-search').value.trim().toLowerCase();
-  const sorted = Res.rows.slice().sort(resCmp).map((r, i) => ({ ...r, rank: i + 1 }));
+  let rows = Res.rows;
+  if (LOCAL) {
+    const sel = $('#r-exam'), keep = sel.value, names = [...new Set(Res.rows.map((r) => r.exam).filter(Boolean))];
+    sel.replaceChildren(h('option', { value: '', text: 'كل الاختبارات' }), ...names.map((n) => h('option', { value: n, text: n }))); sel.value = names.includes(keep) ? keep : '';
+    if (sel.value) rows = rows.filter((r) => r.exam === sel.value);
+  }
+  const sorted = rows.slice().sort(resCmp).map((r, i) => ({ ...r, rank: i + 1 }));
   const list = q ? sorted.filter((r) => String(r.name).toLowerCase().includes(q)) : sorted;
-  $('#r-count').textContent = Res.rows.length + ' طالب';
+  $('#r-count').textContent = rows.length + ' طالب';
+  if (LOCAL) { $('#r-status').textContent = rows.length ? 'عدد الطلاب اللي سلّموا: ' + rows.length + '. تقدري تشيلي أي نتيجة بزرار «شيل».' : 'لسه مفيش درجات. الصقي أكواد النتائج اللي الطلاب يبعتوها.'; $('#r-sheet').hidden = true; } 
   const sh = Res.sheet || {};
   const st = [];
   st.push(Res.game ? 'اللعبة المنشورة: «' + Res.game.title + '» (' + Res.game.n + ' سؤال).' : 'لسه مفيش لعبة منشورة. اعملي لعبة من تبويب «إنشاء لعبة» واضغطي نشر.');
   st.push(!sh.configured ? 'جدول Google Sheets غير مربوط: الدرجات محفوظة مؤقتًا على السيرفر بس.' : sh.ok === false ? 'مشكلة في الاتصال بالجدول' + (sh.pending ? ' (' + sh.pending + ' نتيجة مستنية الإرسال)' : '') + '.' : 'الجدول مربوط ✓');
-  $('#r-status').textContent = st.join(' ');
+  if (!LOCAL) $('#r-status').textContent = st.join(' ');
   const a = $('#r-sheet'); a.hidden = !sh.link; if (sh.link) a.href = sh.link;
   const body = $('#r-rows'); body.replaceChildren();
-  if (!list.length) { body.append(h('tr', {}, h('td', { colspan: '9', class: 'hint', text: 'مفيش درجات لسه.' }))); return; }
+  if (!list.length) { body.append(h('tr', {}, h('td', { colspan: '10', class: 'hint', text: 'مفيش درجات لسه.' }))); return; }
   list.forEach((r) => body.append(h('tr', {}, h('td', { text: String(r.rank) }), h('td', { text: r.name, dir: 'auto' }), h('td', { text: String(r.score) }), h('td', { text: String(r.wrong) }),
-    h('td', { text: r.correct + '/' + r.total }), h('td', { text: r.accuracy + '%' }), h('td', { text: r.level }), h('td', { text: r.timeSec + ' ث' }), h('td', { text: fmtDate(r.at) }))));
+    h('td', { text: r.correct + '/' + r.total }), h('td', { text: r.accuracy + '%' }), h('td', { text: r.level }), h('td', { text: r.timeSec + ' ث' }), h('td', { text: fmtDate(r.at) }),
+    h('td', {}, LOCAL ? h('button', { class: 'btn btn-red btn-sm', type: 'button', text: 'شيل', onclick: () => { Res.rows = Res.rows.filter((x) => x.id !== r.id); LRes.save(Res.rows); paintResults(); } }) : null))));
 }
 $('#r-refresh').addEventListener('click', loadResults);
 $('#r-search').addEventListener('input', paintResults);
+$('#r-exam').addEventListener('change', paintResults);
+$('#r-add').addEventListener('click', () => {
+  const lines = $('#r-code').value.split(/\s+/).filter(Boolean); const cur2 = LRes.load(); let add = 0, bad = 0, dup = 0;
+  lines.forEach((l) => { const r = decodeCode(l); if (!r) { bad++; return; } if (cur2.some((x) => x.id === r.id)) { dup++; return; } cur2.push(r); add++; });
+  LRes.save(cur2); Res.rows = cur2; $('#r-code').value = ''; paintResults();
+  alert2((add ? 'اتضافت ' + add + ' نتيجة. ' : '') + (dup ? dup + ' مكررة. ' : '') + (bad ? bad + ' كود مش مفهوم.' : ''));
+});
 $('#r-csv').addEventListener('click', () => {
   const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
   const rows = Res.rows.slice().sort(resCmp).map((r, i) => [i + 1, r.name, r.score, r.wrong, r.correct, r.total, r.accuracy, r.level, r.fastest, r.timeSec, fmtDate(r.at)]);
@@ -1017,5 +1053,6 @@ $('#r-csv').addEventListener('click', () => {
   if (S.teacher && S.teacher.tkey) { S.role = 'teacher'; show('tlive'); whenOpen(() => {}); return; }
   openJoin(); initLocal();
 })();
+$('#sr-copy').addEventListener('click', () => { const i = $('#sr-code'); i.select(); try { navigator.clipboard.writeText(i.value).then(() => alert2(TX('اتنسخ الكود', 'Copied'))); } catch (e) { /* ignore */ } });
 window.__sbq = { S, Race, Bank, get bank() { return bank; } };
 })();

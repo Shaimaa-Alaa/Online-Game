@@ -90,6 +90,8 @@
     <div class="stage-pv podium-pv" id="sr-3d" hidden></div>
     <div class="podium" id="sr-podium"></div>
     <div class="card"><h3 style="font-weight:900">نتيجتك</h3><div class="stats" id="sr-stats"></div><p id="sr-msg" class="hint" style="margin-top:12px;font-size:1.05rem"></p></div>
+    <div class="card" id="sr-send" style="margin-top:14px" hidden><h3 style="font-weight:900" id="sr-send-t"></h3><p class="hint" id="sr-send-p" style="margin:6px 0 10px"></p><textarea id="sr-code" rows="3" readonly dir="ltr" style="width:100%"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-go" id="sr-copy" type="button"></button><a class="btn btn-ghost" id="sr-wa" target="_blank" rel="noopener"></a></div></div>
     <div class="card" style="margin-top:14px"><h3 style="font-weight:900;margin-bottom:10px">ترتيب الجميع</h3><div class="table-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>النقاط</th><th>الصح</th></tr></thead><tbody id="sr-rows"></tbody></table></div></div>
     <div style="text-align:center;margin-top:18px"><button class="btn btn-go" id="sr-home" type="button">تمام · Done</button></div>
   </div>
@@ -232,9 +234,15 @@
             <button class="btn btn-ghost btn-sm" id="r-csv" type="button">تنزيل Excel (CSV)</button>
           </div>
         </div>
+        <div id="r-local" hidden style="display:grid;gap:10px">
+          <p class="hint">الصفحة دي بتشتغل بلينك من غير سيرفر، فالدرجات مش بتوصل لوحدها. في آخر الاختبار بيظهر للطالب «كود النتيجة» ويبعته لك (واتساب مثلًا). الصقي الأكواد هنا (كود في كل سطر) وهتتحفظ عندك مع الاختبار.</p>
+          <div class="field"><label for="r-code">أكواد النتائج</label><textarea id="r-code" rows="3" dir="ltr" placeholder="N…"></textarea></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><button class="btn btn-go" id="r-add" type="button">إضافة الدرجات</button>
+            <div class="field" style="min-width:200px"><label for="r-exam">الاختبار</label><select id="r-exam"></select></div></div>
+        </div>
         <p class="hint" id="r-status"></p>
         <div class="field" style="max-width:320px"><label for="r-search">بحث بالاسم</label><input id="r-search" type="search" dir="auto"></div>
-        <div class="table-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>النقاط</th><th>الغلط</th><th>الصح</th><th>الدقة</th><th>المستوى</th><th>الوقت</th><th>التاريخ</th></tr></thead><tbody id="r-rows"></tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>النقاط</th><th>الغلط</th><th>الصح</th><th>الدقة</th><th>المستوى</th><th>الوقت</th><th>التاريخ</th><th></th></tr></thead><tbody id="r-rows"></tbody></table></div>
       </div>
     </div>
   </div>
