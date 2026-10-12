@@ -24,10 +24,10 @@ out=("<title>سباق المعرفة</title>\n<script>document.documentElement.l
  '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>\n'
  '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cairo:wght@500;700;800;900&family=IBM+Plex+Mono:wght@500;700&display=swap">\n'
  "<style>\n"+css+"\n</style>\n"+body+"\n"
- "<script>"+three+"</script>\n<script>"+open(P+'vendor/qrcode.js').read()+"</script>\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js\"></script>\n<script>"+open(P+'race3d.js').read()+"</script>\n<script>"+open(P+'scenes.js').read()+"</script>\n"
+ "<script>"+three+"</script>\n<script>"+open(P+'vendor/qrcode.js').read()+"</script>\n<script src=\"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js\"></script>\n<script src=\"https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js\"></script>\n<script>"+open(P+'race3d.js').read()+"</script>\n<script>"+open(P+'scenes.js').read()+"</script>\n"
  "<script>"+default+"\n"+loc+"</script>\n<script>"+app+"</script>\n")
 for s in ['</script']:
     pass
-assert out.count('</script>')==8, out.count('</script>')
+assert out.count('</script>')==9, out.count('</script>')
 open('/home/claude/online-game/artifact/game.html','w').write(out)
 print(len(out))

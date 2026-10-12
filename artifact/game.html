@@ -441,6 +441,7 @@ tr.me td{background:rgba(59,130,246,.2)}
           <button class="btn btn-ghost" id="b-export" type="button">تصدير الأسئلة</button>
           <button class="btn btn-ghost" id="b-import" type="button">رفع ملف أسئلة (Excel / CSV / JSON)</button>
           <button class="btn btn-ghost" id="b-tpl" type="button">نموذج الملف</button>
+          <button class="btn btn-blue" id="b-ai" type="button" hidden>✨ أسئلة من ملف (ذكاء اصطناعي)</button>
           <input type="file" id="b-file" accept=".json,.csv,.tsv,.txt,.xlsx,.xls,application/json,text/csv" hidden>
           <span class="hint" id="b-count"></span>
         </div>
@@ -466,11 +467,28 @@ tr.me td{background:rgba(59,130,246,.2)}
   </div>
 </section>
 
+<!-- AI QUESTIONS FROM A FILE -->
+<div class="modal" id="m-ai" hidden>
+  <div class="card" style="display:grid;gap:14px;max-width:560px;width:100%">
+    <h3 style="font-weight:900;font-size:1.4rem">توليد أسئلة من ملف (ذكاء اصطناعي)</h3>
+    <p class="hint">ارفعي درس أو ملف (Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف لبنك الأسئلة وتقدري تراجعيها وتعدّلي فيها.</p>
+    <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
+    <div class="grid2">
+      <div class="field"><label for="ai-n">عدد الأسئلة</label><input id="ai-n" type="number" min="1" max="30" value="8"></div>
+      <div class="field"><label for="ai-lang">لغة الأسئلة</label><select id="ai-lang"><option value="ar">عربي</option><option value="en">English</option></select></div>
+    </div>
+    <div class="field"><span class="lbl">أنواع الأسئلة</span><div class="seg"><label><input type="checkbox" class="ai-t" value="mcq" checked> اختيار من متعدد</label><label><input type="checkbox" class="ai-t" value="tf" checked> صح / غلط</label><label><input type="checkbox" class="ai-t" value="short"> أكمل / إجابة قصيرة</label><label><input type="checkbox" class="ai-t" value="essay"> مقالي</label></div></div>
+    <div class="field"><label for="ai-extra">تعليمات إضافية (اختياري)</label><input id="ai-extra" type="text" maxlength="200" dir="auto" placeholder="مثال: ركّزي على الفصل الثاني، مستوى مبتدئ"></div>
+    <p class="hint" id="ai-status" aria-live="polite"></p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-go" id="ai-go" type="button">ولّدي الأسئلة</button><button class="btn btn-ghost" id="ai-stop" type="button" hidden>إيقاف</button><button class="btn btn-ghost" id="ai-close" type="button">إغلاق</button></div>
+  </div>
+</div>
+
 <!-- QUESTION EDITOR -->
 <div class="modal" id="m-q" hidden>
   <form class="card" id="mq-form" style="display:grid;gap:14px" novalidate>
     <h3 style="font-weight:900;font-size:1.4rem" id="mq-title">سؤال جديد</h3>
-    <div class="field"><span class="lbl">نوع السؤال</span><div class="seg"><label><input type="radio" name="mq-type" value="mcq" checked> اختيار من متعدد</label><label><input type="radio" name="mq-type" value="tf"> صح / غلط</label><label><input type="radio" name="mq-type" value="short"> إجابة قصيرة</label></div></div>
+    <div class="field"><span class="lbl">نوع السؤال</span><div class="seg"><label><input type="radio" name="mq-type" value="mcq" checked> اختيار من متعدد</label><label><input type="radio" name="mq-type" value="tf"> صح / غلط</label><label><input type="radio" name="mq-type" value="short"> إجابة قصيرة / أكمل</label></div></div>
     <div class="field"><label for="mq-q">السؤال</label><textarea id="mq-q" rows="2" maxlength="500"></textarea></div>
     <div class="field"><label for="mq-code">كود (اختياري)</label><textarea id="mq-code" rows="2" dir="ltr" spellcheck="false" style="font-family:var(--mono)" maxlength="800"></textarea></div>
     <div id="mq-mcq" style="display:grid;gap:8px">
@@ -480,7 +498,8 @@ tr.me td{background:rgba(59,130,246,.2)}
       <div class="copt"><span class="ck" style="background:#22c55e">D</span><input type="text" id="mq-a3" maxlength="200" dir="auto"></div>
       <div class="field"><label for="mq-ans">الإجابة الصحيحة</label><select id="mq-ans"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></div>
     </div>
-    <div id="mq-short" hidden class="field"><label for="mq-acc">الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)</label><textarea id="mq-acc" rows="3" maxlength="400" dir="auto" placeholder="القاهرة&#10;Cairo"></textarea><span class="hint">التصحيح بيتجاهل التشكيل والهمزات والمسافات الزايدة وحروف الكبير والصغير.</span></div>
+    <div id="mq-short" hidden class="field"><label><input type="checkbox" id="mq-essay"> سؤال مقالي (الطالب يكتب إجابة طويلة، وبتتصحح بالكلمات المفتاحية)</label><label for="mq-acc" id="mq-acc-l">الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)</label><textarea id="mq-acc" rows="3" maxlength="400" dir="auto" placeholder="القاهرة&#10;Cairo"></textarea><span class="hint">التصحيح بيتجاهل التشكيل والهمزات والمسافات الزايدة وحروف الكبير والصغير.</span></div>
+    <div id="mq-model-f" hidden class="field"><label for="mq-model">الإجابة النموذجية (بتظهر للطالب بعد السؤال)</label><textarea id="mq-model" rows="3" maxlength="500" dir="auto"></textarea></div>
     <div id="mq-tf" hidden class="field"><label for="mq-tfans">الإجابة الصحيحة</label><select id="mq-tfans"><option value="0">صح (True)</option><option value="1">غلط (False)</option></select></div>
     <div class="grid2">
       <div class="field"><label for="mq-secs-sel">وقت السؤال</label><select id="mq-secs-sel"><option value="5">5 ث</option><option value="10">10 ث</option><option value="15">15 ث</option><option value="20" selected>20 ث</option><option value="30">30 ث</option><option value="45">45 ث</option><option value="60">60 ث</option><option value="custom">وقت مخصص…</option></select><input id="mq-secs" type="number" min="5" max="180" value="20" hidden aria-label="وقت مخصص بالثواني"></div>
@@ -2843,6 +2862,7 @@ var qrcode = function() {
 }));
 </script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.6.0/mammoth.browser.min.js"></script>
 <script>/* Low-poly 3D race stage. Needs the THREE global (r128 build) and a document. */
 function makeRace3D(THREE, doc){
 'use strict';
@@ -3784,7 +3804,7 @@ function sanitizeGame(g) {
       if (choices.filter(Boolean).length < 2 || !choices[answer]) return;
     }
     qs.push({
-      id: 'q' + i, type, accepted, q: text, code: cleanText(q.code, 800).replace(/\s+$/, ''), choices, answer,
+      id: 'q' + i, type, accepted, essay: type === 'short' && !!q.essay, model: type === 'short' ? cleanText(q.model, 500).trim() : '', q: text, code: cleanText(q.code, 800).replace(/\s+$/, ''), choices, answer,
       secs: clamp(Math.round(Number(q.secs)) || 20, 5, 180), points: clamp(Math.round(Number(q.points)) || 100, 10, 1000),
       category: cleanText(q.category, 40), difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty) ? q.difficulty : 'medium',
     });
@@ -3797,6 +3817,10 @@ function norm(t) {
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/[.,،؛;:!؟?"'`]/g, '').replace(/\s+/g, ' ').trim();
 }
 function judge(q, a) {
+  if (q.type === 'short' && q.essay) {                     /* essay: right when the answer mentions at least half of the teacher's key words */
+    var t = norm(a.text), keys = q.accepted.map(norm).filter(Boolean);
+    return !!t && keys.length > 0 && keys.filter((k) => t.includes(k)).length >= Math.ceil(keys.length / 2);
+  }
   if (q.type === 'short') { var t = norm(a.text); return !!t && q.accepted.some((x) => norm(x) === t); }
   return a.choice === q.answer;
 }
@@ -3867,7 +3891,7 @@ function levelOf(acc) {
     if (m.t === 'answer') {
       if (room.state !== 'question' || m.n !== room.round || room.answers) return;
       var q = room.qs[room.round], a = {};
-      if (q.type === 'short') { a.text = cleanText(m.text, 100).trim(); if (!a.text) return; }
+      if (q.type === 'short') { a.text = cleanText(m.text, 300).trim(); if (!a.text) return; }
       else { var c = parseInt(m.choice, 10); if (!(c >= 0 && c < q.choices.length)) return; a.choice = c; }
       if (now() > room.endsAt + 500) return;
       a.ms = clamp(now() - room.qStart, 0, q.secs * 1000); a.ok = judge(q, a);
@@ -3883,7 +3907,7 @@ function levelOf(acc) {
     if (room.round >= room.qs.length) return me.finish();
     var q = room.qs[room.round];
     room.state = 'question'; room.answers = null; room.qStart = now(); room.endsAt = room.qStart + q.secs * 1000;
-    me.emit({ t: 'question', n: room.round, total: room.qs.length, type: q.type, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() });
+    me.emit({ t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() });
     room.timer = setTimeout(function () { me.reveal(); }, q.secs * 1000 + 700);
   };
   /* everyone sorted like the real server: more correct answers first, then more points (= faster answers), then less total time */
@@ -3912,7 +3936,7 @@ function levelOf(acc) {
       b.times.push(ms);
     });
     var last = room.round + 1 >= room.qs.length;
-    me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? q.accepted[0] : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
+    me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
     room.timer = setTimeout(function () { me.next(); }, last ? 4200 : 3800);
   };
   LocalSocket.prototype.finish = function () {
@@ -4274,10 +4298,10 @@ function showQuestion(m) {
   const ch = $('#choices'); ch.replaceChildren(); ch.classList.toggle('short', m.type === 'short');
   $('#qchips').textContent = (m.points || 0) + ' PTS' + (m.difficulty ? ' · ' + DIFF[m.difficulty] : '') + (m.category ? ' · ' + m.category : '');
   if (m.type === 'short') {
-    const inp = h('input', { type: 'text', class: 'shortin', id: 'shortin', maxlength: 100, autocomplete: 'off', dir: 'auto', placeholder: TX('اكتبي إجابتك هنا…', 'Type your answer…'), 'aria-label': 'إجابتك' });
+    const inp = m.essay ? h('textarea', { class: 'shortin', id: 'shortin', rows: 4, maxlength: 300, autocomplete: 'off', dir: 'auto', placeholder: TX('اكتبي إجابتك هنا…', 'Type your answer…'), 'aria-label': 'إجابتك', style: 'resize:none' }) : h('input', { type: 'text', class: 'shortin', id: 'shortin', maxlength: 100, autocomplete: 'off', dir: 'auto', placeholder: TX('اكتبي إجابتك هنا…', 'Type your answer…'), 'aria-label': 'إجابتك' });
     const go = h('button', { type: 'button', class: 'btn btn-go', text: TX('إرسال ↵', 'Submit ↵') });
     const submit = () => { const v = inp.value.trim(); if (v) chooseText(v); };
-    go.addEventListener('click', submit); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } });
+    go.addEventListener('click', submit); inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !m.essay) { e.preventDefault(); submit(); } });
     ch.append(inp, go); setTimeout(() => { try { inp.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 50);
   } else m.choices.forEach((t, j) => {
     ch.append(h('button', { type: 'button', class: 'choice', onclick: () => choose(j) },
@@ -4451,8 +4475,8 @@ function sorted(list) {
 function qBody(q) {
   return h('div', {}, h('div', { class: 'qt', text: q.q }),
     q.code ? h('pre', { class: 'code', text: q.code, style: 'margin:6px 0' }) : null,
-    h('div', { class: 'qc' }, q.type === 'short' ? (q.accepted || []).map((c) => h('span', { class: 'ans ok', text: c })) : q.choices.filter(Boolean).map((c, i) => h('span', { class: 'ans' + (c === q.choices[q.answer] ? ' ok' : ''), text: (q.type === 'tf' ? '' : LETTERS[q.choices.indexOf(c)] + ') ') + c }))),
-    h('div', { class: 'qc' }, h('span', { class: 'chip', text: q.type === 'tf' ? 'صح/غلط' : q.type === 'short' ? 'إجابة قصيرة' : 'اختيار من متعدد' }), h('span', { class: 'chip', text: DIFF[q.difficulty] }), q.category ? h('span', { class: 'chip', text: q.category }) : null, h('span', { class: 'chip', text: q.secs + ' ث' }), h('span', { class: 'chip', text: q.points + ' نقطة' })));
+    h('div', { class: 'qc' }, q.type === 'short' ? (q.accepted || []).map((c) => h('span', { class: 'ans ok', text: c })).concat(q.essay && q.model ? [h('span', { class: 'ans', text: 'نموذجية: ' + q.model })] : []) : q.choices.filter(Boolean).map((c, i) => h('span', { class: 'ans' + (c === q.choices[q.answer] ? ' ok' : ''), text: (q.type === 'tf' ? '' : LETTERS[q.choices.indexOf(c)] + ') ') + c }))),
+    h('div', { class: 'qc' }, h('span', { class: 'chip', text: q.type === 'tf' ? 'صح/غلط' : q.type === 'short' ? (q.essay ? 'مقالي' : 'أكمل / إجابة قصيرة') : 'اختيار من متعدد' }), h('span', { class: 'chip', text: DIFF[q.difficulty] }), q.category ? h('span', { class: 'chip', text: q.category }) : null, h('span', { class: 'chip', text: q.secs + ' ث' }), h('span', { class: 'chip', text: q.points + ' نقطة' })));
 }
 function renderBank() {
   const cats = [...new Set(bank.map((q) => q.category).filter(Boolean))];
@@ -4487,18 +4511,18 @@ function download(name, text, type) {
 /* ----- question editor ----- */
 let editing = null;
 function qType() { return $('input[name="mq-type"]:checked').value; }
-function syncType() { const t = qType(); $('#mq-mcq').hidden = t !== 'mcq'; $('#mq-tf').hidden = t !== 'tf'; $('#mq-short').hidden = t !== 'short'; }
+function syncType() { const t = qType(); $('#mq-mcq').hidden = t !== 'mcq'; $('#mq-tf').hidden = t !== 'tf'; $('#mq-short').hidden = t !== 'short'; const es = t === 'short' && $('#mq-essay').checked; $('#mq-model-f').hidden = !es; $('#mq-acc-l').textContent = es ? 'الكلمات المفتاحية (كلمة أو عبارة في كل سطر، الإجابة صح لو الطالب ذكر نصها على الأقل)' : 'الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)'; }
 const PRESETS = [5, 10, 15, 20, 30, 45, 60];
 function setSecs(v) { const sel = $('#mq-secs-sel'); v = Number(v) || 20; if (PRESETS.includes(v)) { sel.value = String(v); $('#mq-secs').hidden = true; } else { sel.value = 'custom'; $('#mq-secs').hidden = false; } $('#mq-secs').value = v; }
 $('#mq-secs-sel').addEventListener('change', (e) => { if (e.target.value === 'custom') { $('#mq-secs').hidden = false; $('#mq-secs').focus(); } else { $('#mq-secs').hidden = true; $('#mq-secs').value = e.target.value; } });
-$$('input[name="mq-type"]').forEach((r) => r.addEventListener('change', syncType));
+$$('input[name="mq-type"]').forEach((r) => r.addEventListener('change', syncType)); $('#mq-essay').addEventListener('change', syncType);
 function openEditor(q) {
   editing = q; $('#mq-title').textContent = q ? 'تعديل السؤال' : 'سؤال جديد'; $('#mq-err').hidden = true;
   const t = q ? q.type : 'mcq'; $$('input[name="mq-type"]').forEach((r) => { r.checked = r.value === t; });
   $('#mq-q').value = q ? q.q : ''; $('#mq-code').value = q ? q.code : '';
   for (let i = 0; i < 4; i++) $('#mq-a' + i).value = q && q.type === 'mcq' ? q.choices[i] || '' : '';
   $('#mq-ans').value = String(q && q.type === 'mcq' ? q.answer : 0); $('#mq-tfans').value = String(q && q.type === 'tf' ? q.answer : 0);
-  setSecs(q ? q.secs : 20); $('#mq-acc').value = q && q.type === 'short' ? (q.accepted || []).join('\n') : ''; $('#mq-pts').value = q ? q.points : 100; $('#mq-cat').value = q ? q.category : ''; $('#mq-diff').value = q ? q.difficulty : 'medium';
+  setSecs(q ? q.secs : 20); $('#mq-acc').value = q && q.type === 'short' ? (q.accepted || []).join('\n') : ''; $('#mq-essay').checked = !!(q && q.essay); $('#mq-model').value = q && q.model ? q.model : ''; $('#mq-pts').value = q ? q.points : 100; $('#mq-cat').value = q ? q.category : ''; $('#mq-diff').value = q ? q.difficulty : 'medium';
   syncType(); $('#m-q').hidden = false; $('#mq-q').focus();
 }
 $('#mq-cancel').addEventListener('click', () => { $('#m-q').hidden = true; });
@@ -4514,7 +4538,7 @@ $('#mq-form').addEventListener('submit', (e) => {
     if (choices.filter(Boolean).length < 2) return err('اكتبي إجابتين على الأقل.');
     if (!choices[answer]) return err('الإجابة الصحيحة لازم تكون مكتوبة.');
   }
-  const rec = { type, accepted, q: text, code: $('#mq-code').value.replace(/\s+$/, ''), choices, answer, secs: clamp(Number($('#mq-secs-sel').value === 'custom' ? $('#mq-secs').value : $('#mq-secs-sel').value) || 20, 5, 180), points: clamp(Number($('#mq-pts').value) || 100, 10, 1000), category: $('#mq-cat').value.trim(), difficulty: $('#mq-diff').value };
+  const rec = { type, accepted, essay: type === 'short' && $('#mq-essay').checked, model: type === 'short' && $('#mq-essay').checked ? $('#mq-model').value.trim() : '', q: text, code: $('#mq-code').value.replace(/\s+$/, ''), choices, answer, secs: clamp(Number($('#mq-secs-sel').value === 'custom' ? $('#mq-secs').value : $('#mq-secs-sel').value) || 20, 5, 180), points: clamp(Number($('#mq-pts').value) || 100, 10, 1000), category: $('#mq-cat').value.trim(), difficulty: $('#mq-diff').value };
   if (editing) Object.assign(editing, rec); else { const n = { id: uid(), at: Date.now(), ...rec }; bank.unshift(n); selected.add(n.id); }
   Bank.save(bank); $('#m-q').hidden = true; renderBank();
 });
@@ -4623,7 +4647,7 @@ const Games = { load() { try { return JSON.parse(store.get('sbq-games')) || []; 
 let games = Games.load();
 function buildGame() {
   syncOrder();
-  const qs = order.map((id) => { const q = bank.find((x) => x.id === id); const o = ov[id] || {}; return { type: q.type, accepted: q.accepted || [], q: q.q, code: q.code, choices: q.choices, answer: q.answer, secs: o.secs || q.secs, points: o.points || q.points, category: q.category, difficulty: q.difficulty }; });
+  const qs = order.map((id) => { const q = bank.find((x) => x.id === id); const o = ov[id] || {}; return { type: q.type, accepted: q.accepted || [], essay: !!q.essay, model: q.model || '', q: q.q, code: q.code, choices: q.choices, answer: q.answer, secs: o.secs || q.secs, points: o.points || q.points, category: q.category, difficulty: q.difficulty }; });
   const err = $('#g-err'); err.hidden = true;
   if (!qs.length) { err.textContent = 'اختاري سؤالًا واحدًا على الأقل.'; err.hidden = false; return null; }
   return { title: $('#g-title').value.trim() || 'سباق المعرفة', settings: { shuffleQuestions: $('#g-shq').checked, shuffleChoices: $('#g-shc').checked, count: Number($('#g-limit').value) || 0, lang: $('#g-lang').value }, questions: qs };
@@ -4635,11 +4659,11 @@ const b64u = {
 };
 function compactGame(g) {
   return { t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0],
-    q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') o.x = q.accepted; if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
+    q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') { o.x = q.accepted; if (q.essay) { o.e = 1; if (q.model) o.m = q.model; } } if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
 }
 function expandGame(c) {
   return { title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar' },
-    questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
+    questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], essay: !!o.e, model: o.m || '', code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
 }
 async function pack(game) {
   const raw = new TextEncoder().encode(JSON.stringify(compactGame(game)));
@@ -4683,7 +4707,7 @@ function loadGameIntoBuilder(item) {
   const g = item.game; const ids = [];
   g.questions.forEach((q) => {
     let hit = bank.find((b) => b.type === q.type && b.q === q.q && (b.choices || []).join('|') === (q.choices || []).join('|'));
-    if (!hit) { hit = { id: uid(), at: Date.now() + ids.length, type: q.type, accepted: q.accepted || [], q: q.q, code: q.code || '', choices: (q.choices || []).slice(), answer: q.answer, secs: q.secs, points: q.points, category: q.category || '', difficulty: q.difficulty || 'medium' }; bank.push(hit); }
+    if (!hit) { hit = { id: uid(), at: Date.now() + ids.length, type: q.type, accepted: q.accepted || [], essay: !!q.essay, model: q.model || '', q: q.q, code: q.code || '', choices: (q.choices || []).slice(), answer: q.answer, secs: q.secs, points: q.points, category: q.category || '', difficulty: q.difficulty || 'medium' }; bank.push(hit); }
     ids.push(hit.id); ov[hit.id] = { secs: q.secs, points: q.points };
   });
   Bank.save(bank); selected = new Set(ids); order = ids.slice();
@@ -4707,7 +4731,7 @@ function renderGames() {
 /* ----- question files (Excel / CSV / JSON) ----- */
 const HDR = {
   q: ['question', 'questions', 'q', 'text', 'السؤال', 'سؤال'], type: ['type', 'النوع'], ans: ['answer', 'correct', 'correct answer', 'الاجابه', 'الاجابه الصحيحه', 'الاجابة', 'الإجابة', 'الإجابة الصحيحة'],
-  secs: ['seconds', 'secs', 'time', 'الوقت', 'ثواني'], pts: ['points', 'score', 'النقاط'], cat: ['category', 'topic', 'التصنيف'], code: ['code', 'كود'],
+  model: ['model', 'model answer', 'الاجابه النموذجيه', 'الإجابة النموذجية'], secs: ['seconds', 'secs', 'time', 'الوقت', 'ثواني'], pts: ['points', 'score', 'النقاط'], cat: ['category', 'topic', 'التصنيف'], code: ['code', 'كود'],
 };
 const nz = (v) => String(v == null ? '' : v).trim();
 const nk = (v) => nz(v).toLowerCase().replace(/[إأآ]/g, 'ا').replace(/ة/g, 'ه');
@@ -4718,19 +4742,19 @@ function rowsToQuestions(rows) {
   let col = {}, start = 0; const head = rows[0].map(nk);
   const find = (names) => head.findIndex((k) => names.map(nk).includes(k));
   if (find(HDR.q) >= 0) {
-    start = 1; col.q = find(HDR.q); col.type = find(HDR.type); col.ans = find(HDR.ans); col.secs = find(HDR.secs); col.pts = find(HDR.pts); col.cat = find(HDR.cat); col.code = find(HDR.code); col.opt = [-1, -1, -1, -1];
+    start = 1; col.q = find(HDR.q); col.type = find(HDR.type); col.ans = find(HDR.ans); col.secs = find(HDR.secs); col.pts = find(HDR.pts); col.cat = find(HDR.cat); col.code = find(HDR.code); col.model = find(HDR.model); col.opt = [-1, -1, -1, -1];
     head.forEach((k, i) => { const o = optIndex(k); if (o >= 0 && col.opt[o] < 0) col.opt[o] = i; });
-  } else { col = { q: 0, opt: [1, 2, 3, 4], ans: 5, type: -1, secs: 6, pts: 7, cat: -1, code: -1 }; }
+  } else { col = { q: 0, opt: [1, 2, 3, 4], ans: 5, type: -1, secs: 6, pts: 7, cat: -1, code: -1, model: -1 }; }
   const qs = []; let skipped = 0;
   rows.slice(start).forEach((r) => {
     const text = nz(r[col.q]); if (!text) return;
     const opts = col.opt.map((i) => (i >= 0 ? nz(r[i]) : '')); const ans = nz(col.ans >= 0 ? r[col.ans] : ''); const an = nk(ans);
     let type = nk(col.type >= 0 ? r[col.type] : '');
-    type = /^(tf|true|truefalse|true\/false|true false|صح|صح\/غلط|صح او غلط)/.test(type) ? 'tf' : /^(short|text|answer|قصير|اجابه قصيره)/.test(type) ? 'short' : /^(mcq|multiple|choice|اختيار)/.test(type) ? 'mcq' : '';
+    type = /^(tf|true|truefalse|true\/false|true false|صح|صح\/غلط|صح او غلط)/.test(type) ? 'tf' : /^(essay|مقالي|مقاله)/.test(type) ? 'essay' : /^(short|text|answer|fill|complete|اكمل|قصير|اجابه قصيره)/.test(type) ? 'short' : /^(mcq|multiple|choice|اختيار)/.test(type) ? 'mcq' : '';
     const nOpts = opts.filter(Boolean).length;
     if (!type) type = nOpts >= 2 ? 'mcq' : (['true', 't', 'false', 'f', 'صح', 'صحيح', 'غلط', 'خطا', 'خطأ'].includes(an) ? 'tf' : 'short');
     const base = { q: text, code: col.code >= 0 ? nz(r[col.code]) : '', secs: clamp(Number(col.secs >= 0 ? r[col.secs] : 0) || 20, 5, 180), points: clamp(Number(col.pts >= 0 ? r[col.pts] : 0) || 100, 10, 1000), category: col.cat >= 0 ? nz(r[col.cat]) : '', difficulty: 'medium' };
-    if (type === 'short') { const acc = ans.split(/[|;؛\n]/).map((x) => x.trim()).filter(Boolean); if (!acc.length) { skipped++; return; } qs.push({ ...base, type, accepted: acc, choices: [], answer: 0 }); return; }
+    if (type === 'short' || type === 'essay') { const acc = ans.split(/[|;؛\n]/).map((x) => x.trim()).filter(Boolean); if (!acc.length) { skipped++; return; } qs.push({ ...base, type: 'short', essay: type === 'essay', model: type === 'essay' && col.model >= 0 ? nz(r[col.model]) : '', accepted: acc, choices: [], answer: 0 }); return; }
     if (type === 'tf') { const yes = ['true', 't', 'صح', 'صحيح', 'yes', 'نعم', '1'].includes(an), no = ['false', 'f', 'غلط', 'خطا', 'خطأ', 'no', 'لا', '0'].includes(an); if (!yes && !no) { skipped++; return; } qs.push({ ...base, type, accepted: [], choices: ['صح', 'غلط'], answer: yes ? 0 : 1 }); return; }
     let idx = -1; if (/^[a-d]$/.test(an)) idx = 'abcd'.indexOf(an); else if (/^[1-4]$/.test(an)) idx = Number(an) - 1; else if (/^[ابجد]$/.test(an)) idx = 'ابجد'.indexOf(an); else idx = opts.findIndex((o) => o && nk(o) === an);
     if (nOpts < 2 || idx < 0 || !opts[idx]) { skipped++; return; }
@@ -4767,9 +4791,56 @@ $('#b-tpl').addEventListener('click', () => {
   const rows = [['Type', 'Question', 'A', 'B', 'C', 'D', 'Answer', 'Seconds', 'Points', 'Category'],
     ['mcq', 'What is the capital of Egypt?', 'Alexandria', 'Cairo', 'Luxor', 'Aswan', 'B', 20, 100, 'General'],
     ['tf', 'The sun is a star.', '', '', '', '', 'True', 15, 100, 'Science'],
-    ['short', 'ما عاصمة مصر؟', '', '', '', '', 'القاهرة|Cairo', 25, 150, 'عام']];
+    ['short', 'ما عاصمة مصر؟', '', '', '', '', 'القاهرة|Cairo', 25, 150, 'عام'],
+    ['essay', 'Why do we need water?', '', '', '', '', 'drink|plants|survive', 60, 200, 'Science']];
   const esc = (v) => '"' + String(v).replace(/"/g, '""') + '"';
   download('questions-template.csv', '﻿' + rows.map((r) => r.map(esc).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+});
+
+/* ----- AI: questions from an uploaded lesson (artifact only; runs on the teacher's own Claude account) ----- */
+let sampleFn = null, aiCtl = null;
+async function initAI() {
+  try { const c = window.claude; if (!c || !c.use) return; sampleFn = await c.use('sample'); } catch (e) { sampleFn = null; }
+  $('#b-ai').hidden = !(LOCAL && sampleFn);
+}
+$('#b-ai').addEventListener('click', () => { $('#ai-status').textContent = ''; $('#m-ai').hidden = false; });
+$('#ai-close').addEventListener('click', () => { if (aiCtl) aiCtl.abort(); $('#m-ai').hidden = true; });
+$('#ai-stop').addEventListener('click', () => { if (aiCtl) aiCtl.abort(); });
+async function fileToMaterial(f) {
+  const ext = (f.name.split('.').pop() || '').toLowerCase();
+  if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) return { images: [f], text: '' };
+  if (ext === 'pdf') throw new Error('pdf');
+  if (ext === 'docx') { if (!window.mammoth) throw new Error('lib'); const r = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() }); return { images: [], text: r.value }; }
+  if (ext === 'xlsx' || ext === 'xls') { if (!window.XLSX) throw new Error('lib'); const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' }); return { images: [], text: wb.SheetNames.map((n) => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n') }; }
+  return { images: [], text: await f.text() };
+}
+$('#ai-go').addEventListener('click', async () => {
+  const st = $('#ai-status'), f = $('#ai-file').files[0];
+  if (!f) { st.textContent = 'اختاري ملف الأول.'; return; }
+  const types = $$('.ai-t').filter((c) => c.checked).map((c) => c.value); if (!types.length) { st.textContent = 'اختاري نوع سؤال واحد على الأقل.'; return; }
+  const n = clamp(Number($('#ai-n').value) || 8, 1, 30), lang = $('#ai-lang').value;
+  let mat; try { mat = await fileToMaterial(f); } catch (e) {
+    st.textContent = e.message === 'pdf' ? 'ملفات PDF مش مدعومة هنا. حوّليه لـ Word أو نص، أو صوّري الصفحة كصورة وارفعيها.' : 'ما قدرناش نقرا الملف.'; return;
+  }
+  const text = mat.text.replace(/\s+\n/g, '\n').slice(0, 14000);
+  if (!text.trim() && !mat.images.length) { st.textContent = 'الملف فاضي أو ما قدرناش نقرا نص منه.'; return; }
+  const prompt = 'You are helping a teacher write quiz questions from the lesson material below' + (mat.images.length ? ' (the material is the attached image)' : '') + '.\n' +
+    'Write exactly ' + n + ' questions in ' + (lang === 'en' ? 'English' : 'Arabic') + '. Allowed question types: ' + types.join(', ') + ' (mix them roughly evenly). Each question must be answerable from the material, with one clearly correct answer.\n' +
+    'Return ONLY a JSON array. Each item: {"type":"mcq|tf|short|essay","q":"question text","choices":["A","B","C","D"] (mcq only, 4 plausible options),"answer":0-3 index of the right choice for mcq, or 0 for True / 1 for False for tf,"accepted":["acceptable answer", ...] (short: the exact short answers a student could write; essay: 3-6 key words or phrases a good answer must mention),"model":"a short model answer (essay only)","difficulty":"easy|medium|hard"}.\n' +
+    'For "short" questions make them fill-in-the-blank style with a very short answer (one or two words).' + ($('#ai-extra').value.trim() ? '\nTeacher instructions: ' + $('#ai-extra').value.trim() : '') + (text ? '\n\nMATERIAL:\n' + text : '');
+  aiCtl = new AbortController(); st.textContent = 'Claude بيقرا الملف ويكتب الأسئلة… ممكن ياخد لحد دقيقة.'; $('#ai-go').disabled = true; $('#ai-stop').hidden = false;
+  try {
+    let lim = {}; try { lim = (await sampleFn.limits()) || {}; } catch (e) { lim = {}; }
+    const opts = { signal: aiCtl.signal, cache: false }; if (mat.images.length) { if (!lim.images) throw { code: 'images_unavailable' }; opts.images = mat.images; }
+    const arr = await sampleFn.json(prompt, opts);
+    const list = Array.isArray(arr) ? arr : (arr && Array.isArray(arr.questions) ? arr.questions : []);
+    const clean = LOCAL.sanitize({ settings: { lang }, questions: list.map((x) => ({ ...x, type: x.type === 'essay' ? 'short' : x.type, essay: x.type === 'essay', accepted: x.accepted || [], secs: x.type === 'essay' ? 60 : x.type === 'short' ? 30 : 20, points: x.type === 'essay' ? 200 : 100, category: 'AI' })) }).questions;
+    if (!clean.length) throw { code: 'empty' };
+    const added = addToBank(clean.map((q) => ({ type: q.type, accepted: q.accepted, essay: q.essay, model: q.model, q: q.q, code: '', choices: q.choices, answer: q.answer, secs: q.secs, points: q.points, category: 'AI', difficulty: q.difficulty })));
+    renderBank(); renderPick(); st.textContent = 'اتضافت ' + added + ' سؤال لبنك الأسئلة (تصنيف AI). راجعيهم وعدّلي اللي يحتاج تعديل.';
+  } catch (e) {
+    const c = e && e.code; st.textContent = c === 'cancelled' ? 'اتوقف.' : c === 'not_granted' ? 'لازم توافقي على استخدام Claude علشان الميزة دي تشتغل.' : c === 'rate_limited' ? 'استني شوية وحاولي تاني.' : c === 'images_unavailable' ? 'رفع الصور مش متاح دلوقتي. جرّبي ملف نص أو Word.' : 'ما قدرناش نولّد أسئلة من الملف. جرّبي ملف تاني أو قلّلي العدد.';
+  } finally { $('#ai-go').disabled = false; $('#ai-stop').hidden = true; aiCtl = null; }
 });
 
 /* ----- local (shared-link) mode ----- */
@@ -4787,6 +4858,7 @@ function initLocal() {
   fromHash(); window.addEventListener('hashchange', fromHash);
   $('#j-loadcode').addEventListener('click', async () => { const v = $('#j-gamecode').value.replace(/\s+/g, ''); if (v && await loadToken(v)) { $('#j-codebox').open = false; alert2('Game loaded'); } });
   $$('#v-tdash .tab[data-t="res"]').forEach((b) => { b.hidden = true; });
+  initAI();
 }
 renderGames();
 

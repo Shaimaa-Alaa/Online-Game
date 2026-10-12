@@ -67,7 +67,7 @@ function sanitizeGame(g) {
       if (choices.filter(Boolean).length < 2 || !choices[answer]) return;
     }
     qs.push({
-      id: 'q' + i, type, accepted, q: text, code: cleanText(q.code, 800).replace(/\s+$/, ''), choices, answer,
+      id: 'q' + i, type, accepted, essay: type === 'short' && !!q.essay, model: type === 'short' ? cleanText(q.model, 500).trim() : '', q: text, code: cleanText(q.code, 800).replace(/\s+$/, ''), choices, answer,
       secs: clamp(Math.round(Number(q.secs)) || 20, 5, 180), points: clamp(Math.round(Number(q.points)) || 100, 10, 1000),
       category: cleanText(q.category, 40), difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty) ? q.difficulty : 'medium',
     });
@@ -80,6 +80,10 @@ function norm(t) {
     .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/[.,،؛;:!؟?"'`]/g, '').replace(/\s+/g, ' ').trim();
 }
 function judge(q, a) {
+  if (q.type === 'short' && q.essay) {                     /* essay: right when the answer mentions at least half of the teacher's key words */
+    const t = norm(a.text), keys = q.accepted.map(norm).filter(Boolean);
+    return !!t && keys.length > 0 && keys.filter((k) => t.includes(k)).length >= Math.ceil(keys.length / 2);
+  }
   if (q.type === 'short') { const t = norm(a.text); return !!t && q.accepted.some((x) => norm(x) === t); }
   return a.choice === q.answer;
 }
@@ -153,7 +157,7 @@ function pushLobby(room) {
 
 function questionMsg(room) {
   const q = room.qs[room.round];
-  return { t: 'question', n: room.round, total: room.qs.length, type: q.type, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() };
+  return { t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() };
 }
 
 
@@ -266,7 +270,7 @@ function reveal(room) {
       per[p.id] = { ok, pts, choice: a.choice, text: a.text };
     } else { p.wrong++; per[p.id] = { ok: false, pts: 0, choice: -1 }; }
   });
-  room.lastReveal = { t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? q.accepted[0] : q.answer, qtype: q.type, per, dist, board: board(room), last: room.round + 1 >= room.qs.length };
+  room.lastReveal = { t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per, dist, board: board(room), last: room.round + 1 >= room.qs.length };
   broadcast(room, room.lastReveal);
   room.timer = setTimeout(() => nextQuestion(room), room.lastReveal.last ? 4200 : 3800);
 }
@@ -449,7 +453,7 @@ function handle(ws, m) {
   if (m.t === 'answer') {
     if (room.state !== 'question' || m.n !== room.round || room.answers.has(p.id)) return;
     const q = room.qs[room.round]; const a = { choice: -1, text: '' };
-    if (q.type === 'short') { a.text = cleanText(m.text, 100).trim(); if (!a.text) return; }
+    if (q.type === 'short') { a.text = cleanText(m.text, 300).trim(); if (!a.text) return; }
     else { const c = parseInt(m.choice, 10); if (!(c >= 0 && c < q.choices.length)) return; a.choice = c; }
     if (now() > room.endsAt + 500) return;
     a.ms = clamp(now() - room.qStart, 0, q.secs * 1000);

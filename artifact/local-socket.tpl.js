@@ -43,7 +43,7 @@
     if (m.t === 'answer') {
       if (room.state !== 'question' || m.n !== room.round || room.answers) return;
       var q = room.qs[room.round], a = {};
-      if (q.type === 'short') { a.text = cleanText(m.text, 100).trim(); if (!a.text) return; }
+      if (q.type === 'short') { a.text = cleanText(m.text, 300).trim(); if (!a.text) return; }
       else { var c = parseInt(m.choice, 10); if (!(c >= 0 && c < q.choices.length)) return; a.choice = c; }
       if (now() > room.endsAt + 500) return;
       a.ms = clamp(now() - room.qStart, 0, q.secs * 1000); a.ok = judge(q, a);
@@ -59,7 +59,7 @@
     if (room.round >= room.qs.length) return me.finish();
     var q = room.qs[room.round];
     room.state = 'question'; room.answers = null; room.qStart = now(); room.endsAt = room.qStart + q.secs * 1000;
-    me.emit({ t: 'question', n: room.round, total: room.qs.length, type: q.type, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() });
+    me.emit({ t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() });
     room.timer = setTimeout(function () { me.reveal(); }, q.secs * 1000 + 700);
   };
   /* everyone sorted like the real server: more correct answers first, then more points (= faster answers), then less total time */
@@ -88,7 +88,7 @@
       b.times.push(ms);
     });
     var last = room.round + 1 >= room.qs.length;
-    me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? q.accepted[0] : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
+    me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
     room.timer = setTimeout(function () { me.next(); }, last ? 4200 : 3800);
   };
   LocalSocket.prototype.finish = function () {
