@@ -32,15 +32,16 @@
 <!-- STUDENT JOIN -->
 <section class="view" id="v-join" hidden>
   <div class="wrap">
-    <button class="btn btn-ghost btn-sm" type="button" id="j-back">Back</button>
+    <div style="display:flex;justify-content:flex-end"><button class="btn btn-ghost btn-sm" type="button" id="j-teacher" dir="ltr">Teacher · المعلمة</button></div>
     <div class="home" style="min-height:auto;margin-top:16px">
       <form class="card join" id="j-form" autocomplete="off" novalidate dir="ltr">
         <h2 style="font-weight:900;font-size:2rem">WELCOME TO THE RACE</h2>
-        <div class="field" id="j-codefield"><label for="j-code">Game code</label><input id="j-code" class="code-in" type="text" inputmode="numeric" maxlength="6" placeholder="000000"></div>
+        <p class="hint" id="j-gametitle" dir="auto"></p>
+        <input id="j-code" type="hidden">
         <div class="field"><label for="j-name">Enter your name</label><input id="j-name" type="text" maxlength="18" dir="auto" placeholder="Enter your name" autocomplete="off" autocapitalize="words"></div>
         <div class="field"><span class="lbl">Pick your car colour</span><div class="swatches" id="j-sw" role="radiogroup" aria-label="لون العربية"></div></div>
         <p class="err" id="j-err" role="alert" hidden></p>
-        <button class="btn btn-go btn-lg" type="submit" id="j-go">JOIN RACE</button>
+        <button class="btn btn-go btn-lg" type="submit" id="j-go">START THE RACE</button>
       </form>
       <div class="stage-pv" id="pv-join" aria-hidden="true"><div class="roadline"></div></div>
     </div>
@@ -89,7 +90,7 @@
     <div class="podium" id="sr-podium"></div>
     <div class="card"><h3 style="font-weight:900">نتيجتك</h3><div class="stats" id="sr-stats"></div><p id="sr-msg" class="hint" style="margin-top:12px;font-size:1.05rem"></p></div>
     <div class="card" style="margin-top:14px"><h3 style="font-weight:900;margin-bottom:10px">ترتيب الجميع</h3><div class="table-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>النقاط</th><th>الصح</th></tr></thead><tbody id="sr-rows"></tbody></table></div></div>
-    <div style="text-align:center;margin-top:18px"><button class="btn btn-go" id="sr-home" type="button">الرجوع للرئيسية</button></div>
+    <div style="text-align:center;margin-top:18px"><button class="btn btn-go" id="sr-home" type="button">تمام · Done</button></div>
   </div>
 </section>
 
@@ -114,7 +115,7 @@
       <h2 style="font-weight:900;font-size:1.8rem">لوحة المعلمة</h2>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-go btn-sm" id="td-resume" type="button" hidden>الرجوع للغرفة الشغالة</button>
-        <nav class="tabs" role="tablist"><button class="tab" data-t="game" role="tab" type="button">إنشاء لعبة</button><button class="tab" data-t="bank" role="tab" type="button">بنك الأسئلة</button></nav>
+        <nav class="tabs" role="tablist"><button class="tab" data-t="game" role="tab" type="button">إنشاء لعبة</button><button class="tab" data-t="bank" role="tab" type="button">بنك الأسئلة</button><button class="tab" data-t="res" role="tab" type="button">درجات الطلاب</button></nav>
         <button class="btn btn-ghost btn-sm" id="td-out" type="button">خروج</button>
       </div>
     </div>
@@ -134,7 +135,14 @@
         <h3 style="font-weight:900">أضيفي من بنك الأسئلة</h3>
         <div class="qlist" id="g-list"></div>
         <p class="err" id="g-err" hidden></p>
-        <button class="btn btn-go btn-lg" id="g-create" type="button">CREATE GAME · إنشاء اللعبة وأخذ الكود</button>
+        <div class="card" id="pub-box" hidden style="display:grid;gap:12px;justify-items:center;text-align:center">
+          <h3 style="font-weight:900" id="pub-title">اتنشرت اللعبة ✓</h3>
+          <p class="hint" id="pub-note"></p>
+          <div class="qrbox" id="pub-qr"></div>
+          <div class="field" style="width:100%"><label for="pub-link">رابط الطلاب (ابعتيه أو اعرضي الـ QR)</label><input id="pub-link" type="text" readonly dir="ltr"></div>
+          <button class="btn btn-ghost btn-sm" id="pub-copy" type="button">نسخ الرابط</button>
+        </div>
+        <button class="btn btn-go btn-lg" id="g-create" type="button">PUBLISH GAME · نشر اللعبة للطلاب</button>
       </div>
     </div>
 
@@ -156,6 +164,21 @@
         </div>
         <div class="qlist" id="b-list"></div>
         <p class="hint" style="margin-top:12px">الأسئلة محفوظة على متصفحك الحالي. اعملي «تصدير» بين وقت والتاني علشان نسخة احتياطية.</p>
+      </div>
+    </div>
+
+    <div id="tab-res" hidden>
+      <div class="card" style="display:grid;gap:14px">
+        <div class="tbar" style="margin:0"><h3 style="font-weight:900">درجات الطلاب <span class="chip" id="r-count"></span></h3>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-blue btn-sm" id="r-refresh" type="button">تحديث</button>
+            <a class="btn btn-ghost btn-sm" id="r-sheet" href="#" target="_blank" rel="noopener" hidden>فتح جدول Google Sheets</a>
+            <button class="btn btn-ghost btn-sm" id="r-csv" type="button">تنزيل Excel (CSV)</button>
+          </div>
+        </div>
+        <p class="hint" id="r-status"></p>
+        <div class="field" style="max-width:320px"><label for="r-search">بحث بالاسم</label><input id="r-search" type="search" dir="auto"></div>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>الاسم</th><th>النقاط</th><th>الغلط</th><th>الصح</th><th>الدقة</th><th>المستوى</th><th>الوقت</th><th>التاريخ</th></tr></thead><tbody id="r-rows"></tbody></table></div>
       </div>
     </div>
   </div>

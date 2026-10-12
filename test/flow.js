@@ -18,7 +18,7 @@ function client(url) {
     { type: 'mcq', q: 'Q1', choices: ['a', 'b', 'c', 'd'], answer: 2, secs: 5, points: 100 },
     { type: 'tf', q: 'Q2', answer: 1, secs: 5 },
   ];
-  T.send({ t: 'create', game: { title: 'Test', questions: qs, settings: {} } });
+  T.send({ t: 'create', pass: '1234', game: { title: 'Test', questions: qs, settings: {} } });
   const created = await T.wait((m) => m.t === 'created'); assert(/^\d{6}$/.test(created.code));
   const S = [client(url), client(url), client(url)]; await Promise.all(S.map((s) => s.open));
   const names = ['أحمد', 'سارة', 'محمد'];

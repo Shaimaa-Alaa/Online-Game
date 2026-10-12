@@ -8,7 +8,11 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const PORT = Number(process.env.PORT) || 3000;
-const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || '';
+const TEACHER_PASSWORD = process.env.TEACHER_PASSWORD || '1234';
+const SHEET_URL = process.env.SHEET_URL || '';        /* Google Apps Script web-app URL that writes into the teacher's Google Sheet */
+const SHEET_TOKEN = process.env.SHEET_TOKEN || '';    /* shared secret between this server and that script */
+const SHEET_LINK = process.env.SHEET_LINK || '';      /* optional: the sheet's normal URL, shown to the teacher as a button */
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PUB = path.join(__dirname, 'public');
 const MAX_PLAYERS = 200;
 const COLORS = ['red', 'blue', 'green', 'yellow', 'purple', 'black', 'white', 'orange', 'pink'];
@@ -150,18 +154,76 @@ function questionMsg(room) {
   return { t: 'question', n: room.round, total: room.qs.length, type: q.type, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() };
 }
 
+
+/* ---------------- published game + results store ----------------
+   The Google Sheet is the permanent home (free hosts forget local files when they restart);
+   a local file and memory are only a cache. */
+let published = null;      /* { game, at } */
+let results = [];          /* finished students */
+let outbox = [];           /* results not yet confirmed by the sheet */
+let sheetOk = null;        /* null = not configured / not tried, true, false */
+const cmpRes = (a, b) => b.score - a.score || b.correct - a.correct || (a.timeSec || 0) - (b.timeSec || 0) || a.at - b.at;
+const topList = (n) => [...results].sort(cmpRes).slice(0, n).map((r, i) => ({ rank: i + 1, name: r.name, score: r.score, correct: r.correct }));
+function saveLocal() {
+  try { fs.mkdirSync(DATA_DIR, { recursive: true }); fs.writeFileSync(path.join(DATA_DIR, 'state.json'), JSON.stringify({ published, results })); } catch (e) { /* read-only disk: fine */ }
+}
+function loadLocal() {
+  try { const j = JSON.parse(fs.readFileSync(path.join(DATA_DIR, 'state.json'), 'utf8')); if (j.published) published = j.published; if (Array.isArray(j.results)) results = j.results; } catch (e) { /* none yet */ }
+}
+async function sheetPost(body) {
+  const r = await fetch(SHEET_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ ...body, token: SHEET_TOKEN }), signal: AbortSignal.timeout(20000) });
+  const j = await r.json(); if (!j.ok) throw new Error(j.error || 'sheet error'); return j;
+}
+async function sheetGet(action) {
+  const r = await fetch(SHEET_URL + (SHEET_URL.includes('?') ? '&' : '?') + 'action=' + action + '&token=' + encodeURIComponent(SHEET_TOKEN), { signal: AbortSignal.timeout(20000) });
+  const j = await r.json(); if (!j.ok) throw new Error(j.error || 'sheet error'); return j;
+}
+function recordResult(r) {
+  results.push(r); r.rankAtFinish = [...results].sort(cmpRes).indexOf(r) + 1;
+  saveLocal();
+  if (SHEET_URL) { outbox.push(r); flushOutbox(); }
+  return r;
+}
+let flushing = false;
+async function flushOutbox() {
+  if (!SHEET_URL || flushing || !outbox.length) return;
+  flushing = true;
+  try {
+    while (outbox.length) { const r = outbox[0]; await sheetPost({ action: 'result', row: r }); outbox.shift(); sheetOk = true; }
+  } catch (e) { sheetOk = false; console.error('sheet write failed (will retry):', e.message); }
+  flushing = false;
+}
+async function refreshFromSheet() {
+  if (!SHEET_URL) return;
+  try {
+    const j = await sheetGet('list');
+    if (Array.isArray(j.rows)) {
+      const pend = outbox.filter((o) => !j.rows.some((x) => x.id === o.id));
+      results = j.rows.concat(pend); sheetOk = true; saveLocal();
+    }
+  } catch (e) { sheetOk = false; console.error('sheet read failed:', e.message); }
+}
+async function loadGameFromSheet() {
+  if (!SHEET_URL) return;
+  try { const j = await sheetGet('getgame'); if (j.game && j.game.questions && j.game.questions.length) { published = { game: sanitizeGame(j.game), at: j.at || now() }; saveLocal(); } sheetOk = true; }
+  catch (e) { sheetOk = false; console.error('sheet game load failed:', e.message); }
+}
+loadLocal();
+if (SHEET_URL) { loadGameFromSheet().then(refreshFromSheet); setInterval(flushOutbox, 30000).unref(); }
+
 /* ---------------- game flow ---------------- */
-function startGame(room) {
+function startGame(room, cd) {
+  cd = cd || 5000;
   if (room.state !== 'lobby') return;
   const connected = [...room.players.values()].filter((p) => p.connected);
   if (!connected.length) return;
   room.qs = prepareRound(room.game);
   if (!room.qs.length) return;
-  room.state = 'countdown'; room.startAt = now() + 5000; room.round = -1;
+  room.state = 'countdown'; room.startAt = now() + cd; room.round = -1;
   room.players.forEach((p) => { p.score = 0; p.correct = 0; p.wrong = 0; p.times = []; p.fastest = null; });
   broadcast(room, { t: 'countdown', startAt: room.startAt, serverNow: now(), total: room.qs.length });
   pushLobby(room);
-  room.timer = setTimeout(() => nextQuestion(room), 5000 + 1800);
+  room.timer = setTimeout(() => nextQuestion(room), cd + 1800);
 }
 
 function nextQuestion(room) {
@@ -212,6 +274,18 @@ function finish(room) {
   room.state = 'finished';
   const rows = board(room, true);
   room.results = { t: 'results', title: room.title, total: room.qs.length, board: rows, questions: room.qs.length };
+  if (room.solo) {
+    const p = [...room.players.values()][0], me = rows[0];
+    if (p && me && p.times.length && !room.recorded) {            /* a student who never answered anything is not recorded */
+      room.recorded = true;
+      const rec = recordResult({
+        id: rid(6), at: now(), name: p.name, score: p.score, correct: p.correct, wrong: p.wrong, total: room.qs.length,
+        accuracy: me.accuracy, level: me.level.en, fastest: me.fastest != null ? Math.round(me.fastest / 100) / 10 : '',
+        timeSec: Math.round(p.times.reduce((a, b) => a + b, 0) / 100) / 10, title: room.title,
+      });
+      room.results.solo = { rank: rec.rankAtFinish, of: results.length, top: topList(5), saved: true };
+    } else room.results.solo = { rank: null, of: results.length, top: topList(5), saved: false };
+  }
   broadcast(room, room.results);
 }
 
@@ -262,6 +336,45 @@ wss.on('connection', (ws) => {
 
 function handle(ws, m) {
   if (m.t === 'ping') return send(ws, { t: 'pong', c: m.c, s: now() });
+
+
+  /* ----- solo mode: one student plays the published game alone; the result goes to the sheet ----- */
+  if (m.t === 'solo') {
+    if (!published) {
+      if (SHEET_URL) { return loadGameFromSheet().then(() => { if (published) handle(ws, m); else send(ws, { t: 'error', code: 'nogame', msg: 'No game is published yet. Please ask your teacher.' }); }); }
+      return send(ws, { t: 'error', code: 'nogame', msg: 'No game is published yet. Please ask your teacher.' });
+    }
+    if (ws.room) return;                                   /* one game per connection */
+    const name = cleanName(m.name); if (!name) return send(ws, { t: 'error', code: 'name', msg: 'Please enter your name.' });
+    const game = published.game;
+    const room = {
+      code: newCode(), tkey: rid(12), solo: true, title: game.title, game, qs: game.questions, players: new Map(), state: 'lobby', round: -1,
+      tws: null, created: now(), last: now(), timer: null, answers: new Map(), revealed: false, lastReveal: null, results: null,
+    };
+    const color = COLORS.includes(m.color) ? m.color : COLORS[0];
+    const p = { id: 'p' + rid(3), token: rid(12), name, color, ready: true, ws, connected: true, score: 0, correct: 0, wrong: 0, times: [], fastest: null };
+    room.players.set(p.id, p); rooms.set(room.code, room);
+    ws.room = room; ws.role = 'student'; ws.pid = p.id;
+    send(ws, { t: 'joined', pid: p.id, token: p.token, code: room.code, name: p.name, color: p.color, solo: true });
+    return startGame(room, 3500);
+  }
+  if (m.t === 'publish' || m.t === 'tlist') {
+    if (m.pass !== TEACHER_PASSWORD) return send(ws, { t: 'error', code: 'pass', msg: 'كلمة سر المعلمة غير صحيحة.' });
+    if (m.t === 'publish') {
+      const game = sanitizeGame(m.game);
+      if (!game.questions.length) return send(ws, { t: 'error', msg: 'اختاري سؤالًا واحدًا على الأقل (وتأكدي إنه مكتمل).' });
+      published = { game, at: now() }; saveLocal();
+      const done = (saved, err) => send(ws, { t: 'published', title: game.title, n: game.questions.length, saved, err: err || '' });
+      if (!SHEET_URL) return done(false, 'nosheet');
+      return sheetPost({ action: 'setgame', game, at: published.at }).then(() => { sheetOk = true; done(true); }).catch((e) => { sheetOk = false; done(false, e.message); });
+    }
+    const reply = () => send(ws, {
+      t: 'tlist', rows: results, game: published ? { title: published.game.title, n: published.game.questions.length, at: published.at } : null,
+      sheet: { configured: !!SHEET_URL, ok: sheetOk, link: SHEET_LINK, pending: outbox.length },
+    });
+    if (!SHEET_URL) return reply();
+    return refreshFromSheet().then(reply);
+  }
 
   /* ----- teacher ----- */
   if (m.t === 'tauth') return send(ws, { t: 'tauth', ok: !TEACHER_PASSWORD || m.pass === TEACHER_PASSWORD, needpass: !!TEACHER_PASSWORD });
@@ -321,7 +434,7 @@ function handle(ws, m) {
     if (!p) return send(ws, { t: 'error', code: 'gone', msg: 'مقدرناش نرجّعك للسباق.' });
     if (p.ws && p.ws !== ws) { try { p.ws.close(); } catch (e) { /* ignore */ } }
     p.ws = ws; p.connected = true; ws.room = room; ws.role = 'student'; ws.pid = p.id; room.last = now();
-    send(ws, { t: 'joined', pid: p.id, token: p.token, code: room.code, name: p.name, color: p.color, resumed: true });
+    send(ws, { t: 'joined', pid: p.id, token: p.token, code: room.code, name: p.name, color: p.color, resumed: true, solo: !!room.solo });
     pushLobby(room);
     return snapshotFor(room, ws, false, p);
   }
@@ -349,10 +462,10 @@ function handle(ws, m) {
 setInterval(() => {
   wss.clients.forEach((ws) => { if (!ws.isAlive) return ws.terminate(); ws.isAlive = false; try { ws.ping(); } catch (e) { /* ignore */ } });
   const t = now();
-  rooms.forEach((r, code) => { if (t - r.last > 6 * 3600 * 1000) { clearTimeout(r.timer); rooms.delete(code); } });
+  rooms.forEach((r, code) => { if (t - r.last > (r.solo ? 40 * 60 * 1000 : 6 * 3600 * 1000)) { clearTimeout(r.timer); rooms.delete(code); } });
 }, 25000).unref();
 
 if (require.main === module) {
   server.listen(PORT, () => console.log('Quiz Race server on http://localhost:' + PORT + (TEACHER_PASSWORD ? ' (teacher password on)' : '')));
 }
-module.exports = { server, rooms, sanitizeGame, board, levelOf };
+module.exports = { server, rooms, sanitizeGame, board, levelOf, getState: () => ({ published, results, outbox }) };

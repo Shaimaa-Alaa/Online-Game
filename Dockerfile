@@ -4,6 +4,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 COPY . .
 ENV PORT=7860
+ENV DATA_DIR=/tmp/data
 EXPOSE 7860
 USER node
 CMD ["node", "server.js"]

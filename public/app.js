@@ -216,7 +216,7 @@ function swatches(box, current, onPick) {
 }
 function goHome() {
   S.role = null; S.student = null; S.teacher = null; sess.del('sbq-student'); sess.del('sbq-teacher');
-  endRace(); $('#conn').hidden = true; show('home'); Preview.mount($('#pv-home'), 'red');
+  endRace(); $('#conn').hidden = true; openJoin();
 }
 
 /* ---------- home ---------- */
@@ -224,25 +224,19 @@ $('#h-join').addEventListener('click', openJoin);
 $('#h-teacher').addEventListener('click', () => { show('tlogin'); $('#tl-err').hidden = true; });
 function openJoin() {
   show('join'); $('#j-err').hidden = true;
-  const q = new URLSearchParams(location.search).get('code');
-  if (q) $('#j-code').value = q.replace(/\D/g, '').slice(0, 6);
-  /* arrived through the QR / link: the room code is already known, so only the name is asked */
-  $('#j-codefield').hidden = !!($('#j-code').value.length === 6 && q);
   $('#j-name').value = store.get('sbq-name') || '';
   swatches($('#j-sw'), S.color, (k) => { S.color = k; Preview.setColor(k); });
   Preview.mount($('#pv-join'), S.color);
 }
-$('#j-back').addEventListener('click', () => { show('home'); Preview.mount($('#pv-home'), 'red'); });
-$('#j-code').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6); });
+$('#j-teacher').addEventListener('click', () => { show('tlogin'); $('#tl-err').hidden = true; setTimeout(() => $('#tl-pass').focus(), 50); });
 $('#j-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  const code = $('#j-code').value.trim(), name = $('#j-name').value.replace(/\s+/g, ' ').trim();
+  const name = $('#j-name').value.replace(/\s+/g, ' ').trim();
   const err = (t) => { const x = $('#j-err'); x.textContent = t; x.hidden = false; };
-  if (code.length !== 6) return err('Enter the 6-digit game code.');
   if (!name) return err('Please enter your name.');
   $('#j-err').hidden = true; store.set('sbq-name', name); store.set('sbq-color', S.color);
   S.role = 'student'; S.student = null;
-  whenOpen(() => send({ t: 'join', code, name, color: S.color }));
+  whenOpen(() => send({ t: 'solo', name, color: S.color }));
 });
 
 /* ---------- errors from server ---------- */
@@ -262,9 +256,9 @@ on('closed', () => { if (S.role === 'student') { goHome(); alert2('المعلم�
 
 /* ---------- student lobby ---------- */
 on('joined', (m) => {
-  S.role = 'student'; S.student = { code: m.code, token: m.token, pid: m.pid, name: m.name, color: m.color };
+  S.role = 'student'; S.student = { code: m.code, token: m.token, pid: m.pid, name: m.name, color: m.color, solo: !!m.solo };
   sess.set('sbq-student', S.student); S.color = m.color; $('#conn').hidden = true;
-  if (S.view === 'join' || S.view === 'home' || S.view === 'slobby') { show('slobby'); Preview.mount($('#pv-lobby'), m.color); if (S.lobby) Preview.mountGrid($('#pv-grid'), S.lobby.players); }
+  if (!m.solo && (S.view === 'join' || S.view === 'home' || S.view === 'slobby')) { show('slobby'); Preview.mount($('#pv-lobby'), m.color); if (S.lobby) Preview.mountGrid($('#pv-grid'), S.lobby.players); }
   $('#sl-code').textContent = m.code; $('#sl-me').textContent = m.name;
   swatches($('#sl-sw'), m.color, (k) => { S.color = k; Preview.setColor(k); send({ t: 'color', color: k }); });
 });
@@ -285,7 +279,7 @@ on('lobby', (m) => {
     $('#sl-count').textContent = m.players.length; $('#sl-title').textContent = m.title || 'RACE LOBBY';
     paintPlayers(m.players, $('#sl-list'), S.student.pid, false);
     const me = m.players.find((p) => p.id === S.student.pid);
-    if (S.view === 'home' || S.view === 'join') { show('slobby'); Preview.mount($('#pv-lobby'), S.color); }
+    if (!S.student.solo && (S.view === 'home' || S.view === 'join')) { show('slobby'); Preview.mount($('#pv-lobby'), S.color); }
     if (S.view === 'slobby') Preview.mountGrid($('#pv-grid'), m.players);
   }
   if (S.role === 'teacher') paintTeacherLobby(m);
@@ -445,6 +439,7 @@ function levelAr(l) { return l.ar + ' · ' + l.en; }
 function studentResults(m) {
   show('sresult'); sfx('finish');
   const me = m.board.find((r) => r.id === S.student.pid) || m.board[0];
+  if (m.solo) { me.rank = m.solo.rank || 0; me.of = m.solo.of; m.board = m.solo.top.map((t, i) => ({ id: 'top' + i, name: t.name, score: t.score, correct: t.correct, color: (t.name === me.name && t.score === me.score) ? me.color : (i === 0 ? 'yellow' : i === 1 ? 'white' : 'orange'), rank: t.rank })); if (m.solo.rank && m.solo.rank > 5) m.board.push({ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: m.solo.rank }); }
   $('#sr-winner').hidden = false; $('#sr-winner').textContent = me.rank === 1 ? 'WINNER!' : 'RACE COMPLETE'; $('#sr-winner').classList.toggle('lose', me.rank !== 1);
   const g3 = $('#sr-3d'); g3.hidden = false; const got3d = Preview.mountPodium(g3, m.board.slice(0, 3), me.id); g3.hidden = !got3d;
   const pod = $('#sr-podium'); pod.replaceChildren(); pod.hidden = got3d;
@@ -454,7 +449,7 @@ function studentResults(m) {
   });
   const st = $('#sr-stats'); st.replaceChildren();
   const stat = (k, v) => st.append(h('div', { class: 'stat' }, h('span', { text: k }), h('b', { text: v })));
-  stat('Position · المركز', '\u2066' + me.rank + ' / ' + m.board.length + '\u2069'); stat('Score · النقاط', String(me.score));
+  stat('Position · المركز', me.of ? '\u2066' + me.rank + ' / ' + me.of + '\u2069' : '\u2066' + me.rank + ' / ' + m.board.length + '\u2069'); stat('Score · النقاط', String(me.score));
   stat('Correct · الصح', '\u2066' + me.correct + ' / ' + m.total + '\u2069'); stat('Wrong · الغلط', String(me.wrong));
   stat('Accuracy · الدقة', me.accuracy + '%'); stat('Fastest · أسرع إجابة', me.fastest != null ? (me.fastest / 1000).toFixed(1) + ' ث' : '—');
   stat('Level · المستوى', levelAr(me.level));
@@ -491,7 +486,7 @@ on('tauth', (m) => {
   if (m.ok) { S.role = 'teacher'; openDash(); }
   else { const e = $('#tl-err'); e.textContent = 'كلمة السر غير صحيحة.'; e.hidden = false; }
 });
-$('#tl-back').addEventListener('click', () => show('home'));
+$('#tl-back').addEventListener('click', () => openJoin());
 $('#tl-form').addEventListener('submit', (e) => {
   e.preventDefault(); S.pass = $('#tl-pass').value; $('#tl-err').hidden = true;
   whenOpen(() => send({ t: 'tauth', pass: S.pass }));
@@ -503,9 +498,9 @@ $('#td-out').addEventListener('click', goHome);
 $('#td-resume').addEventListener('click', () => { show('tlive'); });
 $$('#v-tdash .tab').forEach((b) => b.addEventListener('click', () => setDashTab(b.dataset.t)));
 function setDashTab(t) {
-  S.tab = t; $('#tab-game').hidden = t !== 'game'; $('#tab-bank').hidden = t !== 'bank';
+  S.tab = t; $('#tab-game').hidden = t !== 'game'; $('#tab-bank').hidden = t !== 'bank'; $('#tab-res').hidden = t !== 'res';
   $$('#v-tdash .tab').forEach((b) => b.setAttribute('aria-selected', b.dataset.t === t ? 'true' : 'false'));
-  if (t === 'bank') renderBank(); else renderPick();
+  if (t === 'bank') renderBank(); else if (t === 'res') loadResults(); else renderPick();
 }
 
 /* ----- question bank ----- */
@@ -637,7 +632,7 @@ $('#g-none').addEventListener('click', () => { selected = new Set(); order = [];
 $('#g-create').addEventListener('click', () => {
   syncOrder(); const qs = order.map((id) => { const q = bank.find((x) => x.id === id); const o = ov[id] || {}; return { ...q, secs: o.secs || q.secs, points: o.points || q.points }; }); const err = $('#g-err'); err.hidden = true;
   if (!qs.length) { err.textContent = 'اختاري سؤالًا واحدًا على الأقل.'; err.hidden = false; return; }
-  whenOpen(() => send({ t: 'create', pass: S.pass, game: { title: $('#g-title').value.trim() || 'سباق المعرفة', settings: { shuffleQuestions: $('#g-shq').checked, shuffleChoices: $('#g-shc').checked }, questions: qs } }));
+  whenOpen(() => send({ t: 'publish', pass: S.pass, game: { title: $('#g-title').value.trim() || 'سباق المعرفة', settings: { shuffleQuestions: $('#g-shq').checked, shuffleChoices: $('#g-shc').checked }, questions: qs } }));
 });
 on('created', (m) => {
   if (S.role !== 'teacher') return;
@@ -703,13 +698,56 @@ $('#tv-csv').addEventListener('click', () => {
 });
 $('#tv-new').addEventListener('click', () => { send({ t: 'close' }); S.teacher = null; sess.del('sbq-teacher'); T.results = null; openDash(); });
 
+/* ----- publish + results (teacher) ----- */
+on('published', (m) => {
+  const box = $('#pub-box'); box.hidden = false;
+  $('#pub-title').textContent = 'اتنشرت اللعبة ✓  (' + m.n + ' سؤال)';
+  $('#pub-note').textContent = m.saved ? 'اتحفظت كمان في جدول Google Sheets، فمش هتضيع لو السيرفر عمل restart.'
+    : (m.err === 'nosheet' ? 'تنبيه: جدول Google Sheets لسه متربطش، فاللعبة محفوظة مؤقتًا على السيرفر وممكن تضيع لو السيرفر عمل restart. اربطي الجدول من الخطوات في ملف README.' : 'تنبيه: ما قدرناش نحفظ اللعبة في الجدول (' + m.err + '). اللعبة شغالة دلوقتي بس ممكن تضيع لو السيرفر عمل restart.');
+  const link = location.origin + location.pathname; $('#pub-link').value = link;
+  try { const qr = qrcode(0, 'M'); qr.addData(link); qr.make(); $('#pub-qr').innerHTML = qr.createSvgTag({ scalable: true, margin: 0 }); } catch (e) { $('#pub-qr').textContent = ''; }
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+$('#pub-copy').addEventListener('click', () => { const i = $('#pub-link'); i.select(); try { navigator.clipboard.writeText(i.value).then(() => alert2('اتنسخ الرابط')); } catch (e) { /* ignore */ } });
+
+const Res = { rows: [], game: null, sheet: null };
+function loadResults() { $('#r-status').textContent = 'بنجيب الدرجات…'; whenOpen(() => send({ t: 'tlist', pass: S.pass })); }
+const resCmp = (a, b) => b.score - a.score || b.correct - a.correct || (a.timeSec || 0) - (b.timeSec || 0) || new Date(a.at) - new Date(b.at);
+const fmtDate = (v) => { const d = new Date(v); return isNaN(d) ? '' : d.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }); };
+on('tlist', (m) => {
+  Res.rows = m.rows || []; Res.game = m.game; Res.sheet = m.sheet; paintResults();
+});
+function paintResults() {
+  const q = $('#r-search').value.trim().toLowerCase();
+  const sorted = Res.rows.slice().sort(resCmp).map((r, i) => ({ ...r, rank: i + 1 }));
+  const list = q ? sorted.filter((r) => String(r.name).toLowerCase().includes(q)) : sorted;
+  $('#r-count').textContent = Res.rows.length + ' طالب';
+  const sh = Res.sheet || {};
+  const st = [];
+  st.push(Res.game ? 'اللعبة المنشورة: «' + Res.game.title + '» (' + Res.game.n + ' سؤال).' : 'لسه مفيش لعبة منشورة. اعملي لعبة من تبويب «إنشاء لعبة» واضغطي نشر.');
+  st.push(!sh.configured ? 'جدول Google Sheets غير مربوط: الدرجات محفوظة مؤقتًا على السيرفر بس.' : sh.ok === false ? 'مشكلة في الاتصال بالجدول' + (sh.pending ? ' (' + sh.pending + ' نتيجة مستنية الإرسال)' : '') + '.' : 'الجدول مربوط ✓');
+  $('#r-status').textContent = st.join(' ');
+  const a = $('#r-sheet'); a.hidden = !sh.link; if (sh.link) a.href = sh.link;
+  const body = $('#r-rows'); body.replaceChildren();
+  if (!list.length) { body.append(h('tr', {}, h('td', { colspan: '9', class: 'hint', text: 'مفيش درجات لسه.' }))); return; }
+  list.forEach((r) => body.append(h('tr', {}, h('td', { text: String(r.rank) }), h('td', { text: r.name, dir: 'auto' }), h('td', { text: String(r.score) }), h('td', { text: String(r.wrong) }),
+    h('td', { text: r.correct + '/' + r.total }), h('td', { text: r.accuracy + '%' }), h('td', { text: r.level }), h('td', { text: r.timeSec + ' ث' }), h('td', { text: fmtDate(r.at) }))));
+}
+$('#r-refresh').addEventListener('click', loadResults);
+$('#r-search').addEventListener('input', paintResults);
+$('#r-csv').addEventListener('click', () => {
+  const esc = (v) => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const rows = Res.rows.slice().sort(resCmp).map((r, i) => [i + 1, r.name, r.score, r.wrong, r.correct, r.total, r.accuracy, r.level, r.fastest, r.timeSec, fmtDate(r.at)]);
+  const csv = '\ufeff' + [['Rank', 'Name', 'Score', 'Wrong', 'Correct', 'Questions', 'Accuracy %', 'Level', 'Fastest (s)', 'Total time (s)', 'Date']].concat(rows).map((r) => r.map(esc).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  const l = h('a', { href: url, download: 'results.csv' }); document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 2000);
+});
+
 /* ================= boot ================= */
 (function boot() {
   if (S.student && S.student.token) { S.role = 'student'; show('slobby'); whenOpen(() => {}); return; }
   if (S.teacher && S.teacher.tkey) { S.role = 'teacher'; show('tlive'); whenOpen(() => {}); return; }
-  const q = new URLSearchParams(location.search).get('code');
-  if (q) { openJoin(); return; }
-  show('home'); Preview.mount($('#pv-home'), 'red');
+  openJoin();
 })();
 window.__sbq = { S, Race, Bank, get bank() { return bank; } };
 })();

@@ -270,3 +270,4 @@ tr.me td{background:rgba(59,130,246,.2)}
 .qbox{max-height:62vh;overflow-y:auto;overscroll-behavior:contain}
 .qbox .code{max-height:22vh;overflow:auto}
 @media (max-height:760px){.qbox .code{max-height:16vh}.qchips{margin:0}}
+.view{overflow-x:clip}

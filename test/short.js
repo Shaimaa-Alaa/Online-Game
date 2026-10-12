@@ -4,7 +4,7 @@ function client(url){const ws=new WebSocket(url),log=[],w=[];ws.on('message',d=>
 (async()=>{
  await new Promise(r=>server.listen(0,r)); const url='ws://localhost:'+server.address().port;
  const T=client(url); await T.open;
- T.send({t:'create',game:{title:'S',settings:{shuffleChoices:true},questions:[{type:'short',q:'عاصمة مصر؟',accepted:['القاهرة|Cairo'],secs:5,points:200}]}});
+ T.send({t:'create',pass:'1234',game:{title:'S',settings:{shuffleChoices:true},questions:[{type:'short',q:'عاصمة مصر؟',accepted:['القاهرة|Cairo'],secs:5,points:200}]}});
  const c=await T.wait(m=>m.t==='created');
  const A=client(url),B=client(url); await A.open; await B.open;
  A.send({t:'join',code:c.code,name:'أ'}); B.send({t:'join',code:c.code,name:'ب'});
