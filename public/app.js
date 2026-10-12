@@ -467,6 +467,14 @@ function studentResults(m) {
     $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة علشان درجتك تتسجّل.', 'Copy this code and send it to your teacher so your score is recorded.');
     $('#sr-code').value = code; $('#sr-copy').textContent = TX('نسخ الكود', 'Copy code'); $('#sr-wa').textContent = TX('إرسال بواتساب', 'Send on WhatsApp');
     $('#sr-wa').href = 'https://wa.me/?text=' + encodeURIComponent(code);
+    const manual = $$('#sr-code, #sr-copy, #sr-wa'); const setManual = (on) => manual.forEach((x) => { x.hidden = !on; });
+    if (gameSheet) {
+      setManual(false); $('#sr-send-t').textContent = TX('بنبعت نتيجتك للمعلمة…', 'Sending your result to your teacher…'); $('#sr-send-p').textContent = '';
+      submitResult({ id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), at: Date.now(), name: me.name, score: me.score, correct: me.correct, wrong: me.wrong, total: m.total, accuracy: me.accuracy, level: LEVEL_AR(me.accuracy), fastest: me.fastest == null ? '' : +(me.fastest / 1000).toFixed(1), timeSec: rec.t, rankAtFinish: me.rank, title: m.title || '' }).then((ok) => {
+        if (ok) { $('#sr-send-t').textContent = TX('اتبعتت نتيجتك للمعلمة ✓', 'Your result was sent to your teacher ✓'); $('#sr-send-p').textContent = ''; }
+        else { setManual(true); $('#sr-send-t').textContent = TX('ما قدرناش نبعت تلقائيًا', "Couldn't send automatically"); $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة.', 'Copy this code and send it to your teacher.'); }
+      });
+    } else setManual(true);
   }
   $('#sr-msg').textContent = (m.solo && m.solo.rivals ? 'المنافسين في السباق دول سائقين بالكمبيوتر. ' : '') + (localMode ? 'صوّري الشاشة دي وابعتيها للمعلمة علشان تسجّل درجتك.' : me.rank === 1 ? 'أنتِ/أنت أول واحد عدّى خط النهاية. مبروك!' : me.accuracy >= 75 ? 'نتيجة قوية. جرّب تاني وهتاخد المركز الأول.' : 'كمّل تدريب، والسباق الجاي فرصتك.');
   const body = $('#sr-rows'); body.replaceChildren();
@@ -705,6 +713,16 @@ $('#tv-new').addEventListener('click', () => { send({ t: 'close' }); S.teacher =
 
 /* ===== versions, file import, share-by-link ===== */
 const LOCAL = window.__LOCAL || null;
+/* optional Google Sheet link (Apps Script web app): the teacher's config lives in her browser; students' links carry only the script id + the add-only KEY */
+const SheetCfg = { load() { try { return JSON.parse(store.get('sbq-sheetcfg')) || {}; } catch (e) { return {}; } }, save(o) { store.set('sbq-sheetcfg', JSON.stringify(o)); } };
+let sheetCfg = SheetCfg.load(), gameSheet = null;
+const gsUrl = (id) => 'https://script.google.com/macros/s/' + id + '/exec';
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function gsCall(id, params) { const r = await fetch(gsUrl(id) + '?' + new URLSearchParams(params).toString()); return r.json(); }
+async function submitResult(rec) {
+  for (let i = 0; i < 3; i++) { try { const j = await gsCall(gameSheet.id, { action: 'submit', key: gameSheet.key, d: b64u.enc(new TextEncoder().encode(JSON.stringify(rec))) }); if (j && j.ok) return true; } catch (e) { /* retry */ } await sleep(1200 * (i + 1)); }
+  return false;
+}
 const Games = { load() { try { return JSON.parse(store.get('sbq-games')) || []; } catch (e) { return []; } }, save(x) { store.set('sbq-games', JSON.stringify(x)); } };
 let games = Games.load();
 function buildGame() {
@@ -718,11 +736,12 @@ const b64u = {
   dec(str) { str = str.replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '='; const s = atob(str), out = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i); return out; },
 };
 function compactGame(g) {
-  return { t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0],
+  const sh = sheetCfg.id && sheetCfg.key ? { u: sheetCfg.id, k: sheetCfg.key } : {};
+  return { ...sh, t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0],
     q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') { o.x = q.accepted; if (q.essay) { o.e = 1; if (q.model) o.m = q.model; } } if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
 }
 function expandGame(c) {
-  return { title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar' },
+  return { sheet: c.u && c.k ? { id: String(c.u), key: String(c.k) } : null, title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar' },
     questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], essay: !!o.e, model: o.m || '', code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
 }
 async function pack(game) {
@@ -961,8 +980,8 @@ $('#ai-go').addEventListener('click', async () => {
 function refreshJoinTitle() { if (!LOCAL) return; const g = LOCAL.getGame(); const n = g.settings.count && g.settings.count < g.questions.length ? g.settings.count : g.questions.length; $('#j-gametitle').textContent = g.title + ' · ' + n + ' questions'; }
 async function loadToken(tok) {
   try {
-    const g = LOCAL.sanitize(expandGame(await unpack(tok.trim()))); if (!g.questions.length) throw new Error('empty');
-    LOCAL.setGame(g); refreshJoinTitle(); $('#j-err').hidden = true; return true;
+    const ex = expandGame(await unpack(tok.trim())); const g = LOCAL.sanitize(ex); if (!g.questions.length) throw new Error('empty');
+    gameSheet = ex.sheet; LOCAL.setGame(g); refreshJoinTitle(); $('#j-err').hidden = true; return true;
   } catch (e) { const x = $('#j-err'); x.textContent = 'This game link or code is not valid.'; x.hidden = false; return false; }
 }
 function initLocal() {
@@ -998,8 +1017,20 @@ function decodeCode(line) {
     return { id: line, exam: String(o.e || '').slice(0, 60), name: String(o.n || '').slice(0, 40), score: num(o.s, 0), correct: num(o.c, 0), wrong: num(o.w, 0), total: num(o.q, 0), accuracy: num(o.a, 0), level: LEVEL_AR(num(o.a, 0)), fastest: o.f == null ? '' : (num(o.f, 0) / 1000).toFixed(1), timeSec: num(o.t, 0), at: num(o.d, Date.now()) };
   } catch (e) { return null; }
 }
-function loadResults() {
-  if (LOCAL) { Res.rows = LRes.load(); Res.game = null; paintResults(); return; }
+async function loadResults() {
+  if (LOCAL) {
+    Res.rows = LRes.load(); Res.game = null; paintResults();
+    if (sheetCfg.id && sheetCfg.token) {
+      try {
+        const j = await gsCall(sheetCfg.id, { action: 'list', token: sheetCfg.token });
+        if (!j || !j.ok) throw new Error('x');
+        const seen = new Set(Res.rows.map((r) => r.id));
+        Res.rows = Res.rows.concat(j.rows.filter((r) => !seen.has(r.id)).map((r) => ({ ...r, exam: r.title || '', fromSheet: true, fastest: r.fastest })));
+        paintResults(); $('#rc-status').textContent = 'الجدول متصل ✓ (' + j.rows.length + ' نتيجة)';
+      } catch (e) { $('#rc-status').textContent = 'ما قدرناش نوصل للجدول. اتأكدي من الرابط والـ TOKEN، ومن إن الصفحة مفتوحة من موقع عادي مش من جوّه Claude.'; }
+    }
+    return;
+  }
   $('#r-status').textContent = 'بنجيب الدرجات…'; whenOpen(() => send({ t: 'tlist', pass: S.pass }));
 }
 const resCmp = (a, b) => b.score - a.score || b.correct - a.correct || (a.timeSec || 0) - (b.timeSec || 0) || new Date(a.at) - new Date(b.at);
@@ -1029,11 +1060,22 @@ function paintResults() {
   if (!list.length) { body.append(h('tr', {}, h('td', { colspan: '10', class: 'hint', text: 'مفيش درجات لسه.' }))); return; }
   list.forEach((r) => body.append(h('tr', {}, h('td', { text: String(r.rank) }), h('td', { text: r.name, dir: 'auto' }), h('td', { text: String(r.score) }), h('td', { text: String(r.wrong) }),
     h('td', { text: r.correct + '/' + r.total }), h('td', { text: r.accuracy + '%' }), h('td', { text: r.level }), h('td', { text: r.timeSec + ' ث' }), h('td', { text: fmtDate(r.at) }),
-    h('td', {}, LOCAL ? h('button', { class: 'btn btn-red btn-sm', type: 'button', text: 'شيل', onclick: () => { Res.rows = Res.rows.filter((x) => x.id !== r.id); LRes.save(Res.rows); paintResults(); } }) : null))));
+    h('td', {}, LOCAL ? h('button', { class: 'btn btn-red btn-sm', type: 'button', text: 'شيل', onclick: () => { Res.rows = Res.rows.filter((x) => x.id !== r.id); LRes.save(Res.rows.filter((x) => !x.fromSheet)); paintResults(); if (r.fromSheet && sheetCfg.id) gsCall(sheetCfg.id, { action: 'delete', token: sheetCfg.token, id: r.id }).catch(() => {}); } }) : null))));
 }
 $('#r-refresh').addEventListener('click', loadResults);
 $('#r-search').addEventListener('input', paintResults);
 $('#r-exam').addEventListener('change', paintResults);
+(function sheetUi() {
+  const idOf = (u) => { const m = String(u).match(/\/macros\/s\/([A-Za-z0-9_-]+)/); return m ? m[1] : ''; };
+  const fill = () => { $('#rc-url').value = sheetCfg.id ? gsUrl(sheetCfg.id) : ''; $('#rc-token').value = sheetCfg.token || ''; $('#rc-key').value = sheetCfg.key || ''; };
+  fill();
+  $('#rc-save').addEventListener('click', () => {
+    const id = idOf($('#rc-url').value.trim()), token = $('#rc-token').value.trim(), key = $('#rc-key').value.trim();
+    if (!id || !token || !key) { $('#rc-status').textContent = 'اكتبي الرابط والـ TOKEN والـ KEY.'; return; }
+    sheetCfg = { id, token, key }; SheetCfg.save(sheetCfg); $('#rc-status').textContent = 'بنختبر الربط…'; loadResults();
+  });
+  $('#rc-off').addEventListener('click', () => { sheetCfg = {}; SheetCfg.save(sheetCfg); fill(); $('#rc-status').textContent = 'اتفصل الربط. الروابط الجديدة مش هتبعت للجدول.'; });
+})();
 $('#r-add').addEventListener('click', () => {
   const lines = $('#r-code').value.split(/\s+/).filter(Boolean); const cur2 = LRes.load(); let add = 0, bad = 0, dup = 0;
   lines.forEach((l) => { const r = decodeCode(l); if (!r) { bad++; return; } if (cur2.some((x) => x.id === r.id)) { dup++; return; } cur2.push(r); add++; });

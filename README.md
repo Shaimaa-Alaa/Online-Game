@@ -87,3 +87,12 @@ pinned: false
 6. ابدئي السيرفر من جديد، وانشري اللعبة تاني.
 
 الجدول بيحفظ كمان اللعبة المنشورة (تبويب `Game`) فمتضيعش لو السيرفر المجاني عمل restart. من غير ربط الجدول، النتائج واللعبة بيتحفظوا مؤقتًا على السيرفر بس.
+
+## نسخة مجانية بدون سيرفر + درجات تلقائية (GitHub Pages + Google Sheet)
+
+1. **الموقع:** من الريبو → Settings → Pages → Source: `main` / مجلد `docs`. الرابط هيبقى `https://shaimaa-alaa.github.io/Online-Game/`.
+2. **الجدول:** اعملي Google Sheet جديد → Extensions → Apps Script → الصقي محتوى `google-sheet/Code.gs`، غيّري `TOKEN` و `KEY` لنصين عشوائيين طويلين مختلفين → Deploy → New deployment → Web app (Execute as: Me، Who has access: Anyone) → انسخي رابط الـ Web app.
+3. **الربط:** افتحي الموقع → زر المعلمة (1234) → «درجات الطلاب» → «ربط جدول Google» → الصقي الرابط والـ TOKEN والـ KEY → «حفظ واختبار الربط».
+4. **الاختبار:** اعملي اختبار → «الرابط» (لازم بعد الربط علشان الرابط يحمل بيانات الجدول). أي طالب يخلّص، اسمه ودرجته يظهروا في تبويب الدرجات وفي الجدول.
+
+تحديث `docs/index.html`: `python3 artifact/build.py pages`.

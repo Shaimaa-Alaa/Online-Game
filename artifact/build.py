@@ -1,3 +1,6 @@
+import sys
+PAGES = len(sys.argv) > 1 and sys.argv[1] == 'pages'
+PAGES_URL = 'https://shaimaa-alaa.github.io/Online-Game/'
 import re, json, sys
 P='/home/claude/online-game/public/'
 S=open('/home/claude/online-game/server.js').read()
@@ -11,7 +14,7 @@ helpers=["var clamp=function(v,a,b){return Math.max(a,Math.min(b,v))};",
  S[S.index("function sanitizeGame"):S.index("function board(")]]
 helpers="\n".join(helpers)
 helpers=re.sub(r"\bconst ","var ",helpers)
-loc=open('/home/claude/online-game/artifact/local-socket.tpl.js').read().replace('/*__HELPERS__*/',helpers).replace('__BASE__','https://claude.ai/artifact/Jxt8ijdbrugeFGGdQavXEo')
+loc=open('/home/claude/online-game/artifact/local-socket.tpl.js').read().replace('/*__HELPERS__*/',helpers).replace('__BASE__',(PAGES_URL if PAGES else 'https://claude.ai/artifact/Jxt8ijdbrugeFGGdQavXEo'))
 app=open(P+'app.js').read()
 seed=re.search(r"const SEED = (\[.*?\n\]);",app,re.S).group(1)
 default="window.__DEFAULT_GAME={title:'سباق المعرفة',settings:{shuffleQuestions:false,shuffleChoices:true},questions:("+seed+").map(function(s){return {type:'mcq',q:s[0],code:s[1],choices:s[2],answer:s[3],secs:20,points:100,category:'بايثون',difficulty:'medium'}})};"
@@ -29,5 +32,10 @@ out=("<title>سباق المعرفة</title>\n<script>document.documentElement.l
 for s in ['</script']:
     pass
 assert out.count('</script>')==9, out.count('</script>')
-open('/home/claude/online-game/artifact/game.html','w').write(out)
+if PAGES:
+    import os
+    os.makedirs('/home/claude/online-game/docs', exist_ok=True)
+    open('/home/claude/online-game/docs/index.html','w',encoding='utf8').write('<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>'+out+'</body></html>')
+else:
+    open('/home/claude/online-game/artifact/game.html','w').write(out)
 print(len(out))

@@ -1,7 +1,8 @@
 /* Quiz Race -> Google Sheets bridge.
    Paste this whole file into Extensions > Apps Script of your Google Sheet, change TOKEN, then Deploy > New deployment > Web app
    (Execute as: Me, Who has access: Anyone). Copy the Web app URL into the server as SHEET_URL, and TOKEN as SHEET_TOKEN. */
-var TOKEN = 'CHANGE-THIS-TO-A-LONG-RANDOM-TEXT';
+var TOKEN = 'CHANGE-THIS-TO-A-LONG-RANDOM-TEXT';   // secret: teacher only (read / delete)
+var KEY = 'CHANGE-THIS-TO-ANOTHER-RANDOM-TEXT';      // goes inside the students' link: can only ADD a result
 var HEAD = ['Time', 'Name', 'Score', 'Correct', 'Wrong', 'Questions', 'Accuracy %', 'Level', 'Fastest (s)', 'Total time (s)', 'Rank at finish', 'Game', 'Current rank', 'ID'];
 
 function sheet_(name, headers) {
@@ -11,19 +12,23 @@ function sheet_(name, headers) {
 }
 function out_(o) { return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON); }
 
+function addResult_(r) {
+  var s = sheet_('Results', HEAD);
+  if (s.getLastRow() > 1 && s.getRange(2, 14, s.getLastRow() - 1, 1).createTextFinder(String(r.id)).matchEntireCell(true).findNext()) return { ok: true, dup: true };
+  s.appendRow([new Date(r.at), String(r.name).slice(0, 40), Number(r.score) || 0, Number(r.correct) || 0, Number(r.wrong) || 0, Number(r.total) || 0, Number(r.accuracy) || 0, String(r.level || ''), r.fastest, Number(r.timeSec) || 0, r.rankAtFinish, String(r.title || '').slice(0, 60), '', String(r.id)]);
+  var row = s.getLastRow();
+  s.getRange(row, 1).setNumberFormat('yyyy-mm-dd hh:mm');
+  s.getRange(row, 13).setFormula('=RANK(C' + row + ',$C$2:$C)');
+  return { ok: true };
+}
+
 function doPost(e) {
   var d; try { d = JSON.parse(e.postData.contents); } catch (err) { return out_({ ok: false, error: 'bad json' }); }
   if (d.token !== TOKEN) return out_({ ok: false, error: 'token' });
   var lock = LockService.getScriptLock(); lock.waitLock(25000);
   try {
     if (d.action === 'result') {
-      var s = sheet_('Results', HEAD), r = d.row;
-      if (s.getLastRow() > 1 && s.getRange(2, 14, s.getLastRow() - 1, 1).createTextFinder(String(r.id)).matchEntireCell(true).findNext()) return out_({ ok: true, dup: true });
-      s.appendRow([new Date(r.at), r.name, r.score, r.correct, r.wrong, r.total, r.accuracy, r.level, r.fastest, r.timeSec, r.rankAtFinish, r.title, '', r.id]);
-      var row = s.getLastRow();
-      s.getRange(row, 1).setNumberFormat('yyyy-mm-dd hh:mm');
-      s.getRange(row, 13).setFormula('=RANK(C' + row + ',$C$2:$C)');
-      return out_({ ok: true });
+      return out_(addResult_(d.row));
     }
     if (d.action === 'setgame') {
       var g = sheet_('Game'); g.clear();
@@ -37,7 +42,23 @@ function doPost(e) {
 }
 
 function doGet(e) {
-  if (!e || !e.parameter || e.parameter.token !== TOKEN) return out_({ ok: false, error: 'token' });
+  var p = (e && e.parameter) || {};
+  if (p.action === 'submit') {            // a student's finished game (sent by the game page itself)
+    if (p.key !== KEY && p.token !== TOKEN) return out_({ ok: false, error: 'key' });
+    var r; try { r = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(p.d)).getDataAsString('UTF-8')); } catch (err) { return out_({ ok: false, error: 'bad data' }); }
+    if (!r || !r.id || !r.name) return out_({ ok: false, error: 'bad data' });
+    var lk = LockService.getScriptLock(); lk.waitLock(25000);
+    try { return out_(addResult_(r)); } finally { lk.releaseLock(); }
+  }
+  if (p.token !== TOKEN) return out_({ ok: false, error: 'token' });
+  if (p.action === 'delete') {
+    var lk2 = LockService.getScriptLock(); lk2.waitLock(25000);
+    try {
+      var s2 = sheet_('Results', HEAD);
+      if (s2.getLastRow() > 1) { var f = s2.getRange(2, 14, s2.getLastRow() - 1, 1).createTextFinder(String(p.id)).matchEntireCell(true).findNext(); if (f) s2.deleteRow(f.getRow()); }
+      return out_({ ok: true });
+    } finally { lk2.releaseLock(); }
+  }
   if (e.parameter.action === 'list') {
     var s = sheet_('Results', HEAD), n = s.getLastRow(), rows = [];
     if (n > 1) {

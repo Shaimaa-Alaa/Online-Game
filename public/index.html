@@ -235,6 +235,16 @@
           </div>
         </div>
         <div id="r-local" hidden style="display:grid;gap:10px">
+          <details id="r-cfg" class="card" style="padding:12px"><summary style="cursor:pointer;font-weight:900">ربط جدول Google (علشان الدرجات توصل لوحدها)</summary>
+            <p class="hint" style="margin:8px 0">محتاج النسخة المنشورة على موقع عادي (مش جوّه Claude)، وجدول Google فيه الكود بتاع <b dir="ltr">Code.gs</b>. اللصق التالي بيتحفظ عندك بس.</p>
+            <div class="grid2">
+              <div class="field"><label for="rc-url">رابط Web app (Apps Script)</label><input id="rc-url" type="text" dir="ltr" placeholder="https://script.google.com/macros/s/…/exec"></div>
+              <div class="field"><label for="rc-token">TOKEN (سري، للمعلمة بس)</label><input id="rc-token" type="text" dir="ltr"></div>
+              <div class="field"><label for="rc-key">KEY (بيتحط في لينك الطلاب)</label><input id="rc-key" type="text" dir="ltr"></div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px"><button class="btn btn-go btn-sm" id="rc-save" type="button">حفظ واختبار الربط</button><button class="btn btn-ghost btn-sm" id="rc-off" type="button">فصل الربط</button></div>
+            <p class="hint" id="rc-status" style="margin-top:6px"></p>
+          </details>
           <p class="hint">الصفحة دي بتشتغل بلينك من غير سيرفر، فالدرجات مش بتوصل لوحدها. في آخر الاختبار بيظهر للطالب «كود النتيجة» ويبعته لك (واتساب مثلًا). الصقي الأكواد هنا (كود في كل سطر) وهتتحفظ عندك مع الاختبار.</p>
           <div class="field"><label for="r-code">أكواد النتائج</label><textarea id="r-code" rows="3" dir="ltr" placeholder="N…"></textarea></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><button class="btn btn-go" id="r-add" type="button">إضافة الدرجات</button>
