@@ -439,8 +439,10 @@ function levelAr(l) { return l.ar + ' · ' + l.en; }
 function studentResults(m) {
   show('sresult'); sfx('finish');
   const me = m.board.find((r) => r.id === S.student.pid) || m.board[0];
-  if (m.solo) { me.rank = m.solo.rank || 0; me.of = m.solo.of; m.board = m.solo.top.map((t, i) => ({ id: 'top' + i, name: t.name, score: t.score, correct: t.correct, color: (t.name === me.name && t.score === me.score) ? me.color : (i === 0 ? 'yellow' : i === 1 ? 'white' : 'orange'), rank: t.rank })); if (m.solo.rank && m.solo.rank > 5) m.board.push({ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: m.solo.rank }); }
-  $('#sr-winner').hidden = false; $('#sr-winner').textContent = me.rank === 1 ? 'WINNER!' : 'RACE COMPLETE'; $('#sr-winner').classList.toggle('lose', me.rank !== 1);
+  const localMode = !!(m.solo && m.solo.local);
+  if (localMode) { me.rank = 1; me.of = 0; m.board = [{ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: 1 }]; }
+  else if (m.solo) { me.rank = m.solo.rank || 0; me.of = m.solo.of; m.board = m.solo.top.map((t, i) => ({ id: 'top' + i, name: t.name, score: t.score, correct: t.correct, color: (t.name === me.name && t.score === me.score) ? me.color : (i === 0 ? 'yellow' : i === 1 ? 'white' : 'orange'), rank: t.rank })); if (m.solo.rank && m.solo.rank > 5) m.board.push({ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: m.solo.rank }); }
+  $('#sr-winner').hidden = false; $('#sr-winner').textContent = me.rank === 1 && !localMode ? 'WINNER!' : 'RACE COMPLETE'; $('#sr-winner').classList.toggle('lose', me.rank !== 1 || localMode);
   const g3 = $('#sr-3d'); g3.hidden = false; const got3d = Preview.mountPodium(g3, m.board.slice(0, 3), me.id); g3.hidden = !got3d;
   const pod = $('#sr-podium'); pod.replaceChildren(); pod.hidden = got3d;
   [1, 0, 2].forEach((i) => {
@@ -449,11 +451,13 @@ function studentResults(m) {
   });
   const st = $('#sr-stats'); st.replaceChildren();
   const stat = (k, v) => st.append(h('div', { class: 'stat' }, h('span', { text: k }), h('b', { text: v })));
-  stat('Position · المركز', me.of ? '\u2066' + me.rank + ' / ' + me.of + '\u2069' : '\u2066' + me.rank + ' / ' + m.board.length + '\u2069'); stat('Score · النقاط', String(me.score));
+  if (localMode) stat('Name · الاسم', me.name);
+  if (!localMode) stat('Position · المركز', me.of ? '\u2066' + me.rank + ' / ' + me.of + '\u2069' : '\u2066' + me.rank + ' / ' + m.board.length + '\u2069'); stat('Score · النقاط', String(me.score));
   stat('Correct · الصح', '\u2066' + me.correct + ' / ' + m.total + '\u2069'); stat('Wrong · الغلط', String(me.wrong));
   stat('Accuracy · الدقة', me.accuracy + '%'); stat('Fastest · أسرع إجابة', me.fastest != null ? (me.fastest / 1000).toFixed(1) + ' ث' : '—');
   stat('Level · المستوى', levelAr(me.level));
-  $('#sr-msg').textContent = me.rank === 1 ? 'أنتِ/أنت أول واحد عدّى خط النهاية. مبروك!' : me.accuracy >= 75 ? 'نتيجة قوية. جرّب تاني وهتاخد المركز الأول.' : 'كمّل تدريب، والسباق الجاي فرصتك.';
+  $('#sr-rows').closest('.card').hidden = localMode;
+  $('#sr-msg').textContent = localMode ? 'صوّري الشاشة دي وابعتيها للمعلمة علشان تسجّل درجتك.' : me.rank === 1 ? 'أنتِ/أنت أول واحد عدّى خط النهاية. مبروك!' : me.accuracy >= 75 ? 'نتيجة قوية. جرّب تاني وهتاخد المركز الأول.' : 'كمّل تدريب، والسباق الجاي فرصتك.';
   const body = $('#sr-rows'); body.replaceChildren();
   m.board.forEach((r) => body.append(h('tr', { class: r.id === me.id ? 'me' : '' }, h('td', { text: String(r.rank) }), h('td', { text: r.name }), h('td', { text: String(r.score) }), h('td', { text: r.correct + '/' + m.total }))));
 }

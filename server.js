@@ -356,6 +356,7 @@ function handle(ws, m) {
     room.players.set(p.id, p); rooms.set(room.code, room);
     ws.room = room; ws.role = 'student'; ws.pid = p.id;
     send(ws, { t: 'joined', pid: p.id, token: p.token, code: room.code, name: p.name, color: p.color, solo: true });
+    pushLobby(room);                                      /* the race scene is built from the lobby's player list, so it must arrive before the countdown */
     return startGame(room, 3500);
   }
   if (m.t === 'publish' || m.t === 'tlist') {
