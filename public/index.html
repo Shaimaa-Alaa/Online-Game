@@ -116,12 +116,62 @@
       <h2 style="font-weight:900;font-size:1.8rem">لوحة المعلمة</h2>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <button class="btn btn-go btn-sm" id="td-resume" type="button" hidden>الرجوع للغرفة الشغالة</button>
-        <nav class="tabs" role="tablist"><button class="tab" data-t="game" role="tab" type="button">إنشاء لعبة</button><button class="tab" data-t="bank" role="tab" type="button">بنك الأسئلة</button><button class="tab" data-t="res" role="tab" type="button">درجات الطلاب</button></nav>
+        <nav class="tabs" role="tablist"><button class="tab" data-t="exams" role="tab" type="button">الاختبارات</button><button class="tab" data-t="res" role="tab" type="button">درجات الطلاب</button></nav>
         <button class="btn btn-ghost btn-sm" id="td-out" type="button">خروج</button>
       </div>
     </div>
 
-    <div id="tab-game">
+    <div id="tab-exams">
+      <div id="ex-home">
+        <div class="tbar"><h3 style="font-weight:900;font-size:1.4rem">اختباراتي <span class="chip" id="ex-count"></span></h3><button class="btn btn-go btn-lg" id="ex-new" type="button">+ اختبار جديد</button></div>
+        <p class="hint" style="margin-bottom:12px">كل اختبار (برمجة، إنجليزي، فرنساوي…) له أسئلته ورابطه الخاص. بيتحفظوا هنا، وتقدري ترجعي تعدّلي أو تبعتي الرابط في أي وقت.</p>
+        <div class="qlist" id="ex-list"></div>
+      </div>
+      <div id="ex-edit" hidden class="card" style="display:grid;gap:16px">
+        <div class="tbar" style="margin:0"><button class="btn btn-ghost btn-sm" id="ex-back" type="button">← كل الاختبارات</button><span class="hint" id="ex-saved">بيتحفظ تلقائيًا ✓</span></div>
+        <div class="grid2">
+          <div class="field"><label for="ex-title">اسم الاختبار</label><input id="ex-title" type="text" maxlength="60" dir="auto"></div>
+          <div class="field"><label for="ex-lang">لغة الاختبار</label><select id="ex-lang"><option value="ar">عربي</option><option value="en">English</option></select></div>
+          <div class="field"><label for="ex-limit">كام سؤال يظهر للطالب</label><input id="ex-limit" type="number" min="1" max="100" inputmode="numeric" placeholder="كلها"></div>
+          <div class="field"><span class="lbl">إعدادات</span>
+            <label><input type="checkbox" id="ex-shq"> ترتيب الأسئلة عشوائي</label>
+            <label><input type="checkbox" id="ex-shc" checked> ترتيب الإجابات عشوائي</label>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-weight:900;margin-bottom:8px">ضيفي سؤال</h3>
+          <div class="addgrid">
+            <button class="btn btn-blue" type="button" data-add="mcq">اختيار من متعدد</button>
+            <button class="btn btn-blue" type="button" data-add="tf">صح / غلط</button>
+            <button class="btn btn-blue" type="button" data-add="short">أكمل / إجابة قصيرة</button>
+            <button class="btn btn-blue" type="button" data-add="essay">مقالي</button>
+          </div>
+          <div class="addgrid" style="margin-top:8px">
+            <button class="btn btn-go" id="ex-ai" type="button" hidden>✨ ارفعي ملف وولّدي أسئلة</button>
+            <button class="btn btn-ghost" id="ex-file" type="button">رفع Excel / CSV</button>
+            <button class="btn btn-ghost" id="ex-tpl" type="button">نموذج الملف</button>
+          </div>
+        </div>
+        <h3 style="font-weight:900">أسئلة الاختبار <span class="chip" id="ex-n"></span></h3>
+        <div class="qlist" id="ex-qs"></div>
+        <p class="err" id="g-err" hidden></p>
+        <div class="card" id="pub-box" hidden style="display:grid;gap:12px;justify-items:center;text-align:center">
+          <h3 style="font-weight:900" id="pub-title">اتنشرت اللعبة ✓</h3>
+          <p class="hint" id="pub-note"></p>
+          <div class="qrbox" id="pub-qr"></div>
+          <div class="field" style="width:100%"><label for="pub-link">رابط الطلاب (ابعتيه أو اعرضي الـ QR)</label><input id="pub-link" type="text" readonly dir="ltr"></div>
+          <button class="btn btn-ghost btn-sm" id="pub-copy" type="button">نسخ الرابط</button>
+          <details id="pub-codebox" style="width:100%;text-align:start" hidden><summary class="hint" style="cursor:pointer">كود اللعبة (لو الرابط ما فتحش اللعبة)</summary><textarea id="pub-code" rows="3" readonly dir="ltr" style="width:100%;font-family:var(--mono);margin-top:8px"></textarea><button class="btn btn-ghost btn-sm" id="pub-copycode" type="button" style="margin-top:6px">نسخ الكود</button></details>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-go btn-lg" id="ex-pub" type="button">رابط الطلاب + QR</button>
+          <button class="btn btn-ghost btn-lg" id="ex-try" type="button">جرّبي الاختبار بنفسك</button>
+          <button class="btn btn-red btn-lg" id="ex-del" type="button">حذف الاختبار</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-game" hidden data-legacy="1">
       <div class="card" id="sg-card" style="margin-bottom:14px">
         <h3 style="font-weight:900;margin-bottom:6px">نسخ اللعبة المحفوظة <span class="chip" id="sg-count"></span></h3>
         <p class="hint" style="margin-bottom:10px">كل نسخة ليها رابط خاص بيها (مثلًا: عامة، برمجة، صح/غلط). الأسئلة بتتخزن جوّه الرابط نفسه.</p>
@@ -142,15 +192,6 @@
         <div class="qlist" id="g-order"></div>
         <h3 style="font-weight:900">أضيفي من بنك الأسئلة</h3>
         <div class="qlist" id="g-list"></div>
-        <p class="err" id="g-err" hidden></p>
-        <div class="card" id="pub-box" hidden style="display:grid;gap:12px;justify-items:center;text-align:center">
-          <h3 style="font-weight:900" id="pub-title">اتنشرت اللعبة ✓</h3>
-          <p class="hint" id="pub-note"></p>
-          <div class="qrbox" id="pub-qr"></div>
-          <div class="field" style="width:100%"><label for="pub-link">رابط الطلاب (ابعتيه أو اعرضي الـ QR)</label><input id="pub-link" type="text" readonly dir="ltr"></div>
-          <button class="btn btn-ghost btn-sm" id="pub-copy" type="button">نسخ الرابط</button>
-          <details id="pub-codebox" style="width:100%;text-align:start" hidden><summary class="hint" style="cursor:pointer">كود اللعبة (لو الرابط ما فتحش اللعبة)</summary><textarea id="pub-code" rows="3" readonly dir="ltr" style="width:100%;font-family:var(--mono);margin-top:8px"></textarea><button class="btn btn-ghost btn-sm" id="pub-copycode" type="button" style="margin-top:6px">نسخ الكود</button></details>
-        </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-go btn-lg" id="g-create" type="button">PUBLISH GAME · نشر اللعبة للطلاب</button>
           <button class="btn btn-blue btn-lg" id="g-save" type="button">حفظ كنسخة</button>
@@ -159,7 +200,7 @@
       </div>
     </div>
 
-    <div id="tab-bank" hidden>
+    <div id="tab-bank" hidden data-legacy="1">
       <div class="card">
         <div class="tools">
           <div class="field"><label for="b-search">بحث</label><input id="b-search" type="search" placeholder="اكتبي جزء من السؤال"></div>
@@ -203,7 +244,7 @@
 <div class="modal" id="m-ai" hidden>
   <div class="card" style="display:grid;gap:14px;max-width:560px;width:100%">
     <h3 style="font-weight:900;font-size:1.4rem">توليد أسئلة من ملف (ذكاء اصطناعي)</h3>
-    <p class="hint">ارفعي درس أو ملف (Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف لبنك الأسئلة وتقدري تراجعيها وتعدّلي فيها.</p>
+    <p class="hint">ارفعي درس أو ملف (Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف للاختبار اللي بتعدّليه وتقدري تراجعيها وتعدّلي فيها.</p>
     <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
     <div class="grid2">
       <div class="field"><label for="ai-n">عدد الأسئلة</label><input id="ai-n" type="number" min="1" max="30" value="8"></div>

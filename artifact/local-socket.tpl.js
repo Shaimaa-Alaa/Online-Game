@@ -50,7 +50,7 @@
       a.pts = a.ok ? Math.round(q.points * (0.5 + 0.5 * clamp(1 - a.ms / (q.secs * 1000), 0, 1))) : 0;
       room.answers = a;
       me.emit({ t: 'ack', n: room.round, choice: a.choice, text: a.text, ok: a.ok, pts: a.pts });
-      clearTimeout(room.timer); room.timer = setTimeout(function () { me.reveal(); }, 700);
+      clearTimeout(room.timer); room.timer = setTimeout(function () { me.reveal(); }, 450);
     }
   };
   LocalSocket.prototype.next = function () {
@@ -89,7 +89,7 @@
     });
     var last = room.round + 1 >= room.qs.length;
     me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
-    room.timer = setTimeout(function () { me.next(); }, last ? 4200 : 3800);
+    room.timer = setTimeout(function () { me.next(); }, last ? 2600 : 1200);
   };
   LocalSocket.prototype.finish = function () {
     var room = this.room; room.state = 'finished';

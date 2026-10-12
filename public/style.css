@@ -271,3 +271,5 @@ tr.me td{background:rgba(59,130,246,.2)}
 .qbox .code{max-height:22vh;overflow:auto}
 @media (max-height:760px){.qbox .code{max-height:16vh}.qchips{margin:0}}
 .view{overflow-x:clip}
+
+.addgrid{display:flex;gap:8px;flex-wrap:wrap}.addgrid .btn{flex:1 1 140px}

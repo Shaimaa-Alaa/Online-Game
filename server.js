@@ -249,7 +249,7 @@ function checkAllAnswered(room) {
   broadcast(room, { t: 'answered', n: room.round, count: done, of: conn.length }, true);
   if (conn.length && done >= conn.length) {
     clearTimeout(room.timer);
-    room.timer = setTimeout(() => reveal(room), 700);
+    room.timer = setTimeout(() => reveal(room), room.solo ? 450 : 700);
   }
 }
 
@@ -272,7 +272,7 @@ function reveal(room) {
   });
   room.lastReveal = { t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per, dist, board: board(room), last: room.round + 1 >= room.qs.length };
   broadcast(room, room.lastReveal);
-  room.timer = setTimeout(() => nextQuestion(room), room.lastReveal.last ? 4200 : 3800);
+  room.timer = setTimeout(() => nextQuestion(room), room.lastReveal.last ? (room.solo ? 2600 : 4200) : (room.solo ? 1200 : 3800));
 }
 
 function finish(room) {
