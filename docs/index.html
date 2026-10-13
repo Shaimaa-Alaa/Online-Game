@@ -4486,7 +4486,7 @@ function studentResults(m) {
       setManual(false); $('#sr-send-t').textContent = TX('بنبعت نتيجتك للمعلمة…', 'Sending your result to your teacher…'); $('#sr-send-p').textContent = '';
       submitResult({ id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), at: Date.now(), name: me.name, score: me.score, correct: me.correct, wrong: me.wrong, total: m.total, accuracy: me.accuracy, level: LEVEL_AR(me.accuracy), fastest: me.fastest == null ? '' : +(me.fastest / 1000).toFixed(1), timeSec: rec.t, rankAtFinish: me.rank, title: m.title || '' }).then((ok) => {
         if (ok) { $('#sr-send-t').textContent = TX('اتبعتت نتيجتك للمعلمة ✓', 'Your result was sent to your teacher ✓'); $('#sr-send-p').textContent = ''; }
-        else { setManual(true); $('#sr-send-t').textContent = TX('ما قدرناش نبعت تلقائيًا', "Couldn't send automatically"); $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة.', 'Copy this code and send it to your teacher.'); }
+        else { setManual(true); $('#sr-send-t').textContent = TX('ما قدرناش نبعت تلقائيًا', "Couldn't send automatically"); $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة.', 'Copy this code and send it to your teacher.') + ' (' + lastSubmitErr + ')'; }
       });
     } else setManual(true);
   }
@@ -4733,8 +4733,13 @@ let sheetCfg = SheetCfg.load(), gameSheet = null;
 const gsUrl = (id) => 'https://script.google.com/macros/s/' + id + '/exec';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 async function gsCall(id, params) { const r = await fetch(gsUrl(id) + '?' + new URLSearchParams(params).toString()); return r.json(); }
+let lastSubmitErr = '';
 async function submitResult(rec) {
-  for (let i = 0; i < 3; i++) { try { const j = await gsCall(gameSheet.id, { action: 'submit', key: gameSheet.key, d: b64u.enc(new TextEncoder().encode(JSON.stringify(rec))) }); if (j && j.ok) return true; } catch (e) { /* retry */ } await sleep(1200 * (i + 1)); }
+  let d = b64u.enc(new TextEncoder().encode(JSON.stringify(rec))); while (d.length % 4) d += '=';   /* Apps Script's web-safe decoder wants the padding */
+  for (let i = 0; i < 3; i++) {
+    try { const j = await gsCall(gameSheet.id, { action: 'submit', key: gameSheet.key, d }); if (j && j.ok) return true; lastSubmitErr = j && j.error ? 'server: ' + j.error : 'bad reply'; } catch (e) { lastSubmitErr = 'network: ' + (e && e.message ? e.message : e); }
+    await sleep(1200 * (i + 1));
+  }
   return false;
 }
 const Games = { load() { try { return JSON.parse(store.get('sbq-games')) || []; } catch (e) { return []; } }, save(x) { store.set('sbq-games', JSON.stringify(x)); } };
