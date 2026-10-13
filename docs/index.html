@@ -533,13 +533,14 @@ tr.me td{background:rgba(59,130,246,.2)}
 <div class="modal" id="m-ai" hidden>
   <div class="card" style="display:grid;gap:14px;max-width:560px;width:100%">
     <h3 style="font-weight:900;font-size:1.4rem">توليد أسئلة من ملف (ذكاء اصطناعي)</h3>
-    <p class="hint">ارفعي درس أو ملف (Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف للاختبار اللي بتعدّليه وتقدري تراجعيها وتعدّلي فيها.</p>
-    <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
+    <p class="hint">ارفعي درس أو ملف (PDF أو Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف للاختبار اللي بتعدّليه وتقدري تراجعيها وتعدّلي فيها.</p>
+    <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
     <div class="grid2">
       <div class="field"><label for="ai-n">عدد الأسئلة</label><input id="ai-n" type="number" min="1" max="30" value="8"></div>
       <div class="field"><label for="ai-lang">لغة الأسئلة</label><select id="ai-lang"><option value="ar">عربي</option><option value="en">English</option></select></div>
     </div>
     <div class="field"><span class="lbl">أنواع الأسئلة</span><div class="seg"><label><input type="checkbox" class="ai-t" value="mcq" checked> اختيار من متعدد</label><label><input type="checkbox" class="ai-t" value="tf" checked> صح / غلط</label><label><input type="checkbox" class="ai-t" value="short"> أكمل / إجابة قصيرة</label><label><input type="checkbox" class="ai-t" value="essay"> مقالي</label></div></div>
+    <div class="field"><span class="lbl">مستويات الصعوبة</span><div class="seg"><label><input type="checkbox" class="ai-d" value="easy" checked> سهل</label><label><input type="checkbox" class="ai-d" value="medium" checked> متوسط</label><label><input type="checkbox" class="ai-d" value="hard"> صعب</label></div></div>
     <div class="field"><label for="ai-extra">تعليمات إضافية (اختياري)</label><input id="ai-extra" type="text" maxlength="200" dir="auto" placeholder="مثال: ركّزي على الفصل الثاني، مستوى مبتدئ"></div>
     <p class="hint" id="ai-status" aria-live="polite"></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-go" id="ai-go" type="button">ولّدي الأسئلة</button><button class="btn btn-ghost" id="ai-stop" type="button" hidden>إيقاف</button><button class="btn btn-ghost" id="ai-close" type="button">إغلاق</button></div>
@@ -4969,10 +4970,30 @@ async function initAI() {
 $('#b-ai').addEventListener('click', () => { $('#ai-status').textContent = ''; $('#m-ai').hidden = false; });
 $('#ai-close').addEventListener('click', () => { if (aiCtl) aiCtl.abort(); $('#m-ai').hidden = true; });
 $('#ai-stop').addEventListener('click', () => { if (aiCtl) aiCtl.abort(); });
+const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+async function loadPdfJs() {
+  if (window.pdfjsLib) return;
+  await new Promise((ok, no) => { const sc = document.createElement('script'); sc.src = PDFJS + 'pdf.min.js'; sc.onload = ok; sc.onerror = () => no(new Error('lib')); document.head.append(sc); });
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js';
+}
+async function pdfToMaterial(f) {
+  await loadPdfJs();
+  const pdf = await window.pdfjsLib.getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+  let text = ''; const pages = Math.min(pdf.numPages, 40);
+  for (let i = 1; i <= pages && text.length < 20000; i++) { const c = await (await pdf.getPage(i)).getTextContent(); text += c.items.map((x) => x.str).join(' ') + '\n'; }
+  if (text.replace(/\s/g, '').length > 120) return { images: [], text };
+  const images = [];                                     /* scanned PDF: send the first pages as pictures */
+  for (let i = 1; i <= Math.min(pdf.numPages, 3); i++) {
+    const pg = await pdf.getPage(i), vp = pg.getViewport({ scale: 1.4 }), cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+    await pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    images.push(await new Promise((r) => cv.toBlob(r, 'image/jpeg', 0.8)));
+  }
+  return { images, text: '' };
+}
 async function fileToMaterial(f) {
   const ext = (f.name.split('.').pop() || '').toLowerCase();
   if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) return { images: [f], text: '' };
-  if (ext === 'pdf') throw new Error('pdf');
+  if (ext === 'pdf') return pdfToMaterial(f);
   if (ext === 'docx') { if (!window.mammoth) throw new Error('lib'); const r = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() }); return { images: [], text: r.value }; }
   if (ext === 'xlsx' || ext === 'xls') { if (!window.XLSX) throw new Error('lib'); const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' }); return { images: [], text: wb.SheetNames.map((n) => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n') }; }
   return { images: [], text: await f.text() };
@@ -4982,14 +5003,16 @@ $('#ai-go').addEventListener('click', async () => {
   if (!f) { st.textContent = 'اختاري ملف الأول.'; return; }
   const types = $$('.ai-t').filter((c) => c.checked).map((c) => c.value); if (!types.length) { st.textContent = 'اختاري نوع سؤال واحد على الأقل.'; return; }
   const n = clamp(Number($('#ai-n').value) || 8, 1, 30), lang = $('#ai-lang').value;
+  const levels = $$('.ai-d').filter((c) => c.checked).map((c) => c.value); if (!levels.length) { st.textContent = 'اختاري مستوى صعوبة واحد على الأقل.'; return; }
   let mat; try { mat = await fileToMaterial(f); } catch (e) {
-    st.textContent = e.message === 'pdf' ? 'ملفات PDF مش مدعومة هنا. حوّليه لـ Word أو نص، أو صوّري الصفحة كصورة وارفعيها.' : 'ما قدرناش نقرا الملف.'; return;
+    st.textContent = e.message === 'lib' ? 'ما قدرناش نحمّل أداة قراءة الملف. اتأكدي من النت وحاولي تاني.' : 'ما قدرناش نقرا الملف. جرّبي ملف تاني.'; return;
   }
-  const text = mat.text.replace(/\s+\n/g, '\n').slice(0, 14000);
+  const text = mat.text.replace(/\s+\n/g, '\n').slice(0, 20000);
   if (!text.trim() && !mat.images.length) { st.textContent = 'الملف فاضي أو ما قدرناش نقرا نص منه.'; return; }
   const prompt = 'You are helping a teacher write quiz questions from the lesson material below' + (mat.images.length ? ' (the material is the attached image)' : '') + '.\n' +
     'Write exactly ' + n + ' questions in ' + (lang === 'en' ? 'English' : 'Arabic') + '. Allowed question types: ' + types.join(', ') + ' (mix them roughly evenly). Each question must be answerable from the material, with one clearly correct answer.\n' +
     'Return ONLY a JSON array. Each item: {"type":"mcq|tf|short|essay","q":"question text","choices":["A","B","C","D"] (mcq only, 4 plausible options),"answer":0-3 index of the right choice for mcq, or 0 for True / 1 for False for tf,"accepted":["acceptable answer", ...] (short: the exact short answers a student could write; essay: 3-6 key words or phrases a good answer must mention),"model":"a short model answer (essay only)","difficulty":"easy|medium|hard"}.\n' +
+    'Difficulty levels to use: ' + levels.join(', ') + '. Spread the questions roughly evenly across these levels and set "difficulty" for each one. easy = a direct fact that is stated plainly in the material, short and obvious, which any student who paid attention would know; medium = needs a little understanding or connecting two ideas; hard = needs reasoning or applying the idea to a new example. Keep every question short and clear, written for school kids.\n' +
     'For "short" questions make them fill-in-the-blank style with a very short answer (one or two words).' + ($('#ai-extra').value.trim() ? '\nTeacher instructions: ' + $('#ai-extra').value.trim() : '') + (text ? '\n\nMATERIAL:\n' + text : '');
   aiCtl = new AbortController(); st.textContent = 'Claude بيقرا الملف ويكتب الأسئلة… ممكن ياخد لحد دقيقة.'; $('#ai-go').disabled = true; $('#ai-stop').hidden = false;
   try {
@@ -4997,7 +5020,7 @@ $('#ai-go').addEventListener('click', async () => {
     const opts = { signal: aiCtl.signal, cache: false }; if (mat.images.length) { if (!lim.images) throw { code: 'images_unavailable' }; opts.images = mat.images; }
     const arr = await sampleFn.json(prompt, opts);
     const list = Array.isArray(arr) ? arr : (arr && Array.isArray(arr.questions) ? arr.questions : []);
-    const clean = LOCAL.sanitize({ settings: { lang }, questions: list.map((x) => ({ ...x, type: x.type === 'essay' ? 'short' : x.type, essay: x.type === 'essay', accepted: x.accepted || [], secs: x.type === 'essay' ? 60 : x.type === 'short' ? 30 : 20, points: x.type === 'essay' ? 200 : 100, category: 'AI' })) }).questions;
+    const clean = LOCAL.sanitize({ settings: { lang }, questions: list.map((x) => ({ ...x, type: x.type === 'essay' ? 'short' : x.type, essay: x.type === 'essay', accepted: x.accepted || [], secs: x.type === 'essay' ? 60 : x.type === 'short' ? 30 : x.difficulty === 'hard' ? 30 : 20, points: x.type === 'essay' ? 200 : x.difficulty === 'hard' ? 200 : x.difficulty === 'medium' ? 150 : 100, category: 'AI' })) }).questions;
     if (!clean.length) throw { code: 'empty' };
     const added = addToBank(clean.map((q) => ({ type: q.type, accepted: q.accepted, essay: q.essay, model: q.model, q: q.q, code: '', choices: q.choices, answer: q.answer, secs: q.secs, points: q.points, category: 'AI', difficulty: q.difficulty })));
     renderBank(); renderPick(); st.textContent = 'اتضافت ' + added + ' سؤال للاختبار. راجعيهم تحت وعدّلي اللي يحتاج.';

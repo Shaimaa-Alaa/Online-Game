@@ -263,13 +263,14 @@
 <div class="modal" id="m-ai" hidden>
   <div class="card" style="display:grid;gap:14px;max-width:560px;width:100%">
     <h3 style="font-weight:900;font-size:1.4rem">توليد أسئلة من ملف (ذكاء اصطناعي)</h3>
-    <p class="hint">ارفعي درس أو ملف (Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف للاختبار اللي بتعدّليه وتقدري تراجعيها وتعدّلي فيها.</p>
-    <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
+    <p class="hint">ارفعي درس أو ملف (PDF أو Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف للاختبار اللي بتعدّليه وتقدري تراجعيها وتعدّلي فيها.</p>
+    <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
     <div class="grid2">
       <div class="field"><label for="ai-n">عدد الأسئلة</label><input id="ai-n" type="number" min="1" max="30" value="8"></div>
       <div class="field"><label for="ai-lang">لغة الأسئلة</label><select id="ai-lang"><option value="ar">عربي</option><option value="en">English</option></select></div>
     </div>
     <div class="field"><span class="lbl">أنواع الأسئلة</span><div class="seg"><label><input type="checkbox" class="ai-t" value="mcq" checked> اختيار من متعدد</label><label><input type="checkbox" class="ai-t" value="tf" checked> صح / غلط</label><label><input type="checkbox" class="ai-t" value="short"> أكمل / إجابة قصيرة</label><label><input type="checkbox" class="ai-t" value="essay"> مقالي</label></div></div>
+    <div class="field"><span class="lbl">مستويات الصعوبة</span><div class="seg"><label><input type="checkbox" class="ai-d" value="easy" checked> سهل</label><label><input type="checkbox" class="ai-d" value="medium" checked> متوسط</label><label><input type="checkbox" class="ai-d" value="hard"> صعب</label></div></div>
     <div class="field"><label for="ai-extra">تعليمات إضافية (اختياري)</label><input id="ai-extra" type="text" maxlength="200" dir="auto" placeholder="مثال: ركّزي على الفصل الثاني، مستوى مبتدئ"></div>
     <p class="hint" id="ai-status" aria-live="polite"></p>
     <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn btn-go" id="ai-go" type="button">ولّدي الأسئلة</button><button class="btn btn-ghost" id="ai-stop" type="button" hidden>إيقاف</button><button class="btn btn-ghost" id="ai-close" type="button">إغلاق</button></div>
