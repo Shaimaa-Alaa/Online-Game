@@ -4852,7 +4852,7 @@ $('#ex-tpl').addEventListener('click', () => $('#b-tpl').click());
 $('#ex-pub').addEventListener('click', () => { const game = buildGame(); if (game) shareGame(game); });
 $('#ex-try').addEventListener('click', () => {
   const game = buildGame(); if (!game) return;
-  if (LOCAL) { LOCAL.setGame(LOCAL.sanitize(game)); refreshJoinTitle(); openJoin(); alert2('اختبارك اتحمّل. اكتبي اسمك وجرّبي.'); }
+  if (LOCAL) { gameSheet = sheetCfg.id && sheetCfg.key ? { id: sheetCfg.id, key: sheetCfg.key } : null; LOCAL.setGame(LOCAL.sanitize(game)); refreshJoinTitle(); openJoin(); alert2('اختبارك اتحمّل. اكتبي اسمك وجرّبي.'); }
   else alert2('التجربة متاحة في النسخة اللي بتتشارك بلينك. هنا انشري الاختبار وادخلي من لينك الطلاب.');
 });
 $('#ex-del').addEventListener('click', () => {
