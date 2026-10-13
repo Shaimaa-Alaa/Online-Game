@@ -1107,14 +1107,16 @@ function decodeCode(line) {
 }
 async function loadResults() {
   if (LOCAL) {
-    Res.rows = LRes.load(); Res.game = null; paintResults();
+    const localRows = LRes.load(); Res.game = null;
+    if (!(sheetCfg.id && sheetCfg.token)) { Res.rows = localRows; paintResults(); return; }
+    if (!Res.rows.length) { Res.rows = localRows; paintResults(); }          /* first load only: show what we have; refreshes keep the list on screen (no flicker) */
     if (sheetCfg.id && sheetCfg.token) {
       try {
         const j = await gsCall(sheetCfg.id, { action: 'list', token: sheetCfg.token });
         if (!j || !j.ok) throw new Error('x');
-        const seen = new Set(Res.rows.map((r) => r.id));
-        Res.rows = Res.rows.concat(j.rows.filter((r) => !seen.has(r.id)).map((r) => { const parts = String(r.level || '').split('§§'); let missed = []; try { if (parts[1]) missed = JSON.parse(parts[1]); } catch (e) { /* ignore */ } return { ...r, level: parts[0], missed, exam: r.title || '', fromSheet: true, fastest: r.fastest }; }));
-        paintResults(); $('#rc-status').textContent = 'الجدول متصل ✓ (' + j.rows.length + ' نتيجة)';
+        const seen = new Set(localRows.map((r) => r.id));
+        Res.rows = localRows.concat(j.rows.filter((r) => !seen.has(r.id)).map((r) => { const parts = String(r.level || '').split('§§'); let missed = []; try { if (parts[1]) missed = JSON.parse(parts[1]); } catch (e) { /* ignore */ } return { ...r, level: parts[0], missed, exam: r.title || '', fromSheet: true, fastest: r.fastest }; }));
+        if (JSON.stringify(Res.rows) !== Res._last) { Res._last = JSON.stringify(Res.rows); paintResults(); } $('#rc-status').textContent = 'الجدول متصل ✓ (' + j.rows.length + ' نتيجة)';
       } catch (e) { $('#rc-status').textContent = 'ما قدرناش نوصل للجدول. اتأكدي من الرابط والـ TOKEN، ومن إن الصفحة مفتوحة من موقع عادي مش من جوّه Claude.'; }
     }
     return;
