@@ -508,10 +508,14 @@ function studentResults(m) {
     const rec = { e: m.title || '', n: me.name, s: me.score, c: me.correct, w: me.wrong, q: m.total, a: me.accuracy, f: me.fastest, t: Math.round((me.avgTime || 0) * m.total / 1000), d: Date.now(), m: S.missed || [] };
     const code = 'N' + b64u.enc(new TextEncoder().encode(JSON.stringify(rec)));
     $('#sr-send-t').textContent = TX('ابعتي نتيجتك للمعلمة', 'Send your result to your teacher');
-    $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة علشان درجتك تتسجّل.', 'Copy this code and send it to your teacher so your score is recorded.');
+    $('#sr-send-p').textContent = TX('اضغطي الزرار اللي تحت علشان تاخدي كود النتيجة وتبعتيه للمعلمة.', 'Tap the button below to get your result code and send it to your teacher.');
     $('#sr-code').value = code; $('#sr-copy').textContent = TX('نسخ الكود', 'Copy code'); $('#sr-wa').textContent = TX('إرسال بواتساب', 'Send on WhatsApp');
     $('#sr-wa').href = 'https://wa.me/?text=' + encodeURIComponent(code);
-    const manual = $$('#sr-code, #sr-copy, #sr-wa'); const setManual = (on) => manual.forEach((x) => { x.hidden = !on; });
+    const manual = $$('#sr-code, #sr-copy, #sr-wa');
+    let tg = $('#sr-manual'); if (!tg) { tg = h('button', { type: 'button', class: 'btn btn-ghost btn-sm', id: 'sr-manual' }); sendBox.append(tg); }
+    tg.hidden = true; tg.onclick = () => { manual.forEach((x) => { x.hidden = false; }); tg.hidden = true; };
+    /* the long code is only a backup: keep it folded away unless the student really needs it */
+    const setManual = (on) => { manual.forEach((x) => { x.hidden = true; }); tg.hidden = !on; tg.textContent = TX('الإرسال التلقائي مش شغال؟ اضغطي هنا لإرسال النتيجة بالكود', 'Automatic send not working? Tap here to send by code'); };
     if (gameSheet) {
       setManual(false); $('#sr-send-t').textContent = TX('بنبعت نتيجتك للمعلمة…', 'Sending your result to your teacher…'); $('#sr-send-p').textContent = '';
       submitResult({ id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), at: Date.now(), name: me.name, score: me.score, correct: me.correct, wrong: me.wrong, total: m.total, accuracy: me.accuracy, level: LEVEL_AR(me.accuracy) + (S.missed && S.missed.length ? '§§' + JSON.stringify(S.missed) : ''), fastest: me.fastest == null ? '' : +(me.fastest / 1000).toFixed(1), timeSec: rec.t, rankAtFinish: me.rank, title: m.title || '' }).then((ok) => {
