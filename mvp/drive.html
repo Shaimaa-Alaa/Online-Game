@@ -1,0 +1,61 @@
+<title>AI Road Race</title>
+<style>
+:root{--bg:#0f1b2d;--fg:#f4f7fb;--road:#26364d;--line:#f2c94c;--ok:#2fbf71;--bad:#e5484d;--card:#1b2b44;--accent:#4cc9f0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:system-ui,Segoe UI,Arial,sans-serif;margin:0;padding-inline:16px;padding-block:8px;display:flex;flex-direction:column;align-items:center;gap:8px;overflow-x:hidden}
+#top{width:100%;max-width:440px;display:flex;justify-content:space-between;font-weight:700;font-variant-numeric:tabular-nums}
+#q{width:100%;max-width:440px;background:var(--card);border-radius:14px;padding:10px 14px;text-align:center;font-size:1.15rem;font-weight:700;min-height:2.6em;display:flex;align-items:center;justify-content:center;text-wrap:balance}
+#wrap{position:relative;width:100%;max-width:440px;flex:1;min-height:0;max-height:560px}
+canvas{width:100%;height:100%;display:block;border-radius:14px;touch-action:none}
+#btns{width:100%;max-width:440px;display:flex;gap:10px}
+#btns button{flex:1;font-size:2rem;padding:12px;border:0;border-radius:14px;background:var(--accent);color:#06202b;font-weight:800;touch-action:manipulation}
+#ov{position:absolute;inset:0;background:rgba(10,18,32,.88);border-radius:14px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px}
+#ov h1{margin:0;font-size:1.8rem}#ov p{margin:0;opacity:.85}
+#ov button{font-size:1.2rem;padding:12px 28px;border:0;border-radius:12px;background:var(--line);color:#2b2200;font-weight:800}
+#ov input{font-size:1.1rem;padding:10px;border-radius:10px;border:0;text-align:center;width:70%}
+</style>
+<div id="top"><span id="sc">Score 0</span><span id="pg">Question 1/6</span></div>
+<div id="q"></div>
+<div id="wrap"><canvas id="c"></canvas>
+<div id="ov"><h1>🏎️ AI Road Race</h1><p>Steer ◀ ▶ to drive through the right answer!</p><input id="nm" placeholder="Your name" maxlength="14"><button id="go">Start</button></div></div>
+<div id="btns"><button id="L">◀</button><button id="R">▶</button></div>
+<script>
+var QS=[
+["Is a robot a living person?",["Yes","No","Only on Sundays"],1,"No — a robot is a machine"],
+["Which one is a smart helper that talks to you?",["Chair","Shoe","Chatbot"],2,"A chatbot talks to you"],
+["AI learns from ______",["Examples","Sleeping","Water"],0,"AI learns from examples"],
+["Can AI make mistakes?",["No, never","Yes","Only on Mondays"],1,"Yes — always double-check"],
+["Which one uses AI?",["Pencil","Phone assistant","Book"],1,"Voice assistants use AI"],
+["AI means Artificial ______",["Banana","Table","Intelligence"],2,"Artificial Intelligence"]];
+var cv=document.getElementById('c'),g=cv.getContext('2d'),W,H,dpr=Math.min(2,window.devicePixelRatio||1);
+function size(){var r=cv.getBoundingClientRect();W=r.width;H=r.height;cv.width=W*dpr;cv.height=H*dpr;g.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',size);
+var S={run:false,qi:0,lane:1,x:1,score:0,name:'',y:0,speed:0,opts:[],res:null,t:0,right:0,stripe:0};
+function $(i){return document.getElementById(i)}
+function setQ(){var q=QS[S.qi];$('q').textContent=q[0];$('pg').textContent='Question '+(S.qi+1)+'/'+QS.length;S.opts=q[1];S.y=-0.15;S.res=null;S.speed=0.2+S.right*0.02}
+function start(){S.name=$('nm').value.trim()||'Driver';S.qi=0;S.score=0;S.right=0;S.lane=1;S.x=1;$('sc').textContent='Score 0';$('ov').hidden=true;size();setQ();S.run=true;S.t=performance.now();requestAnimationFrame(loop)}
+function mv(d){S.lane=Math.max(0,Math.min(2,S.lane+d))}
+$('go').onclick=start;
+$('L').onpointerdown=function(e){e.preventDefault();mv(-1)};$('R').onpointerdown=function(e){e.preventDefault();mv(1)};
+addEventListener('keydown',function(e){if(e.key==='ArrowLeft'||e.key==='a')mv(-1);if(e.key==='ArrowRight'||e.key==='d')mv(1)});
+var tx=null;cv.addEventListener('pointerdown',function(e){tx=e.clientX});cv.addEventListener('pointerup',function(e){if(tx==null)return;var d=e.clientX-tx;if(Math.abs(d)>25)mv(d>0?1:-1);else{var r=cv.getBoundingClientRect();mv(e.clientX<r.left+r.width/2?-1:1)}tx=null});
+function loop(t){if(!S.run)return;var dt=Math.min(.05,(t-S.t)/1000);S.t=t;
+S.x+=(S.lane-S.x)*Math.min(1,dt*12);S.stripe=(S.stripe+dt*(S.speed*900+200))%60;
+if(!S.res){S.y+=dt*S.speed;if(S.y>=0.82){var ok=S.lane===QS[S.qi][2];S.res={ok:ok,at:t};if(ok){S.right++;S.score+=100+Math.round(S.speed*100);}$('sc').textContent='Score '+S.score}}
+else if(t-S.res.at>1400){S.qi++;if(S.qi>=QS.length)return done();setQ()}
+draw();requestAnimationFrame(loop)}
+function draw(){g.clearRect(0,0,W,H);g.fillStyle='#16233a';g.fillRect(0,0,W,H);
+var rw=W*.9,rx=(W-rw)/2,lw=rw/3;g.fillStyle='#26364d';g.fillRect(rx,0,rw,H);
+g.fillStyle='#f2c94c';for(var i=1;i<3;i++)for(var y=-60+S.stripe;y<H;y+=60)g.fillRect(rx+lw*i-3,y,6,30);
+var cy=H*.82,gy=S.y*H;
+for(var l=0;l<3;l++){var gx=rx+lw*l+6,gw=lw-12,res=S.res,right=l===QS[S.qi][2];
+g.fillStyle=res?(right?'#2fbf71':'#555f70'):'#4cc9f0';if(res&&!right&&l===S.lane)g.fillStyle='#e5484d';
+rr(gx,gy-34,gw,68,12);g.fillStyle=res&&right?'#05301a':'#06202b';g.font='700 '+Math.min(18,lw/6.5)+'px system-ui';g.textAlign='center';g.textBaseline='middle';wrap(S.opts[l],gx+gw/2,gy,gw-10)}
+var cx=rx+lw*(S.x+.5),b=S.res&&!S.res.ok?Math.sin(performance.now()/40)*3:0;
+g.save();g.translate(cx+b,cy);g.fillStyle='#e5484d';rr(-18,-34,36,68,10,-1);g.fillStyle='#bfe9ff';g.fillRect(-12,-18,24,14);g.fillStyle='#111';g.fillRect(-22,-26,6,16);g.fillRect(16,-26,6,16);g.fillRect(-22,12,6,16);g.fillRect(16,12,6,16);g.restore();
+if(S.res){g.fillStyle=S.res.ok?'#2fbf71':'#e5484d';g.font='800 28px system-ui';g.textAlign='center';g.fillText(S.res.ok?'✔ Great! +'+(100+Math.round(S.speed*100)):'✘ '+QS[S.qi][3],W/2,H*.5);}}
+function rr(x,y,w,h,r,f){g.beginPath();g.roundRect?g.roundRect(x,y,w,h,r):g.rect(x,y,w,h);if(f!==-1){}g.fill()}
+function wrap(t,x,y,mw){var ws=t.split(' '),ls=[],c='';ws.forEach(function(w){var n=c?c+' '+w:w;if(g.measureText(n).width>mw&&c){ls.push(c);c=w}else c=n});ls.push(c);var lh=18;ls.forEach(function(l,i){g.fillText(l,x,y+(i-(ls.length-1)/2)*lh)})}
+function done(){S.run=false;var st=S.right>=6?'🏆 Perfect!':S.right>=4?'🌟 Great job!':'👍 Good try!';$('ov').hidden=false;$('ov').innerHTML='<h1>'+st+'</h1><p>'+S.name+': '+S.right+' / '+QS.length+' correct</p><p style="font-size:1.6rem;font-weight:800">'+S.score+' points</p><button id="go">Play again</button>';$('go').onclick=start}
+size();
+</script>
