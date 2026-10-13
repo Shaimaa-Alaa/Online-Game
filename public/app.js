@@ -827,13 +827,33 @@ function showPub(link, note, code) {
   $('#pub-codebox').hidden = !code; $('#pub-code').value = code || '';
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
+/* short link: the packed exam is stored in the teacher's sheet (tab "Links") in small chunks; the link carries only a short id + the script id + the add-only KEY */
+const rndId = (n) => { let r = ''; const a = 'abcdefghijkmnpqrstuvwxyz23456789', v = crypto.getRandomValues(new Uint8Array(n)); for (let i = 0; i < n; i++) r += a[v[i] % a.length]; return r; };
+async function shortLink(tok) {
+  if (!(sheetCfg.id && sheetCfg.token && sheetCfg.key)) return { why: '' };
+  const gid = rndId(7), CH = 1800, n = Math.ceil(tok.length / CH);
+  try {
+    for (let i = 0; i < n; i++) {
+      let j = null; for (let t = 0; t < 2 && !(j && j.ok); t++) { try { j = await gsCall(sheetCfg.id, { action: 'put', token: sheetCfg.token, gid, i, n, d: tok.slice(i * CH, (i + 1) * CH) }); } catch (e) { j = null; await sleep(500); } }
+      if (!j || !j.ok) return { why: j && j.error === 'unknown action' ? '(الرابط القصير محتاج تحدّثي كود Apps Script مرة واحدة.)' : '(ما قدرناش نعمل رابط قصير.)' };
+    }
+    return { link: LOCAL.base + '#g' + gid + '.' + sheetCfg.id + '.' + sheetCfg.key };
+  } catch (e) { return { why: '' }; }
+}
+async function fetchShort(ref) {
+  const [gid, u, k] = ref.split('.');
+  for (let t = 0; t < 3; t++) { try { const j = await gsCall(u, { action: 'get', key: k, gid }); if (j && j.ok && j.token) return j.token; if (j && j.error === 'notfound') return null; } catch (e) { /* retry */ } await sleep(800 * (t + 1)); }
+  return null;
+}
 async function shareGame(game) {
   if (!LOCAL) { whenOpen(() => send({ t: 'publish', pass: S.pass, game })); return; }
   const g = LOCAL.sanitize(game);
   if (!g.questions.length) { const e = $('#g-err'); e.textContent = 'مفيش أسئلة صالحة في اللعبة.'; e.hidden = false; return; }
   try {
-    const tok = await pack(g), link = LOCAL.base + '#' + tok;
-    showPub(link, 'ابعتي الرابط للطلاب (الأسئلة جوّه الرابط نفسه). كل لعبة ليها رابط مختلف. ' + (link.length < 900 ? '' : 'الرابط طويل شوية علشان الأسئلة كتير، فابعتيه بالنسخ بدل الـ QR.'), tok);
+    const tok = await pack(g), long = LOCAL.base + '#' + tok;
+    const sh = await shortLink(tok);
+    if (sh.link) { showPub(sh.link, 'ده رابط قصير: الأسئلة محفوظة في جدولك واللينك بيجيبها منه. الـ QR بقى صغير وسهل. (لو الجدول قفل، الرابط الطويل في الكود تحت بيشتغل من غير جدول.)', tok); return; }
+    showPub(long, 'ابعتي الرابط للطلاب (الأسئلة جوّه الرابط نفسه). ' + (sh.why ? sh.why + ' ' : '') + (long.length < 900 ? '' : 'الرابط طويل شوية علشان الأسئلة كتير، فابعتيه بالنسخ بدل الـ QR.'), tok);
   } catch (e) { const x = $('#g-err'); x.textContent = 'ما قدرناش نعمل الرابط.'; x.hidden = false; }
 }
 $('#pub-copycode').addEventListener('click', () => { const i = $('#pub-code'); i.select(); try { navigator.clipboard.writeText(i.value).then(() => alert2('اتنسخ الكود')); } catch (e) { /* ignore */ } });
@@ -1075,7 +1095,15 @@ async function loadToken(tok) {
 function initLocal() {
   if (!LOCAL) return;
   $('#j-codebox').hidden = false; refreshJoinTitle();
-  const fromHash = () => { const t = (location.hash || '').replace(/^#/, ''); if (t.length > 8 && /^[zr][A-Za-z0-9_-]+$/.test(t)) loadToken(t); };
+  const fromHash = async () => {
+    const t = (location.hash || '').replace(/^#/, '');
+    if (t.length > 8 && /^[zr][A-Za-z0-9_-]+$/.test(t)) loadToken(t);
+    else if (/^g[a-z0-9]{4,12}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{6,}$/.test(t)) {
+      const gt = $('#j-gametitle'); gt.textContent = 'Loading the quiz…'; $('#j-go').disabled = true;
+      const tok = await fetchShort(t.slice(1)); $('#j-go').disabled = false;
+      if (tok) await loadToken(tok); else { gt.textContent = ''; const x = $('#j-err'); x.textContent = 'Could not load this quiz link. Check your internet and try again.'; x.hidden = false; }
+    }
+  };
   fromHash(); window.addEventListener('hashchange', fromHash);
   $('#j-loadcode').addEventListener('click', async () => { const v = $('#j-gamecode').value.replace(/\s+/g, ''); if (v && await loadToken(v)) { $('#j-codebox').open = false; alert2('Game loaded'); } });
   $('#r-local').hidden = false;
