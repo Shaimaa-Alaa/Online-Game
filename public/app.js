@@ -295,6 +295,7 @@ function endRace() {
   Race.ready = false; Race.pending = null; Race.q = null; $('#qbox').hidden = true;
 }
 on('countdown', (m) => {
+  if (S.role === 'student') S.missed = [];
   if (S.role !== 'student' || !S.student) return;
   Race.lang = m.lang === 'en' ? 'en' : 'ar';
   if (S.bestRtt > 1e8) S.offset = m.serverNow - Date.now();
@@ -420,6 +421,7 @@ on('reveal', (m) => {
     if (S.view !== 'race') return;
     const me = m.per[S.student.pid] || { ok: false, pts: 0, choice: -1 };
     const handled = Race.myAck && Race.myAck.n === m.n;
+    if (!me.ok && Race.q && Race.q.q) { (S.missed = S.missed || []).push(String(Race.q.q).replace(/\s+/g, ' ').slice(0, 80)); }
     $$('#choices .choice').forEach((b, k) => { b.disabled = true; b.classList.remove('picked', 'wrong', 'correct'); if (k === m.correct) b.classList.add('correct'); else if (k === me.choice) b.classList.add('wrong'); });
     const fb = $('#fb');
     if (m.qtype === 'short') { fb.textContent = (me.ok ? TX('إجابة صحيحة! +' + me.pts + ' نقطة', 'Correct! +' + me.pts + ' pts') : (me.choice < 0 && !me.text ? TX('الوقت خلص. ', "Time's up. ") : TX('إجابة غلط. ', 'Wrong. ')) + TX('الإجابة الصحيحة: ', 'Correct answer: ') + m.correct); fb.className = 'feedback ' + (me.ok ? 'good' : 'bad'); }
@@ -461,7 +463,7 @@ function studentResults(m) {
   $('#sr-rows').closest('.card').hidden = localMode;
   const sendBox = $('#sr-send'); sendBox.hidden = !(m.solo && m.solo.local);
   if (!sendBox.hidden) {
-    const rec = { e: m.title || '', n: me.name, s: me.score, c: me.correct, w: me.wrong, q: m.total, a: me.accuracy, f: me.fastest, t: Math.round((me.avgTime || 0) * m.total / 1000), d: Date.now() };
+    const rec = { e: m.title || '', n: me.name, s: me.score, c: me.correct, w: me.wrong, q: m.total, a: me.accuracy, f: me.fastest, t: Math.round((me.avgTime || 0) * m.total / 1000), d: Date.now(), m: S.missed || [] };
     const code = 'N' + b64u.enc(new TextEncoder().encode(JSON.stringify(rec)));
     $('#sr-send-t').textContent = TX('ابعتي نتيجتك للمعلمة', 'Send your result to your teacher');
     $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة علشان درجتك تتسجّل.', 'Copy this code and send it to your teacher so your score is recorded.');
@@ -470,7 +472,7 @@ function studentResults(m) {
     const manual = $$('#sr-code, #sr-copy, #sr-wa'); const setManual = (on) => manual.forEach((x) => { x.hidden = !on; });
     if (gameSheet) {
       setManual(false); $('#sr-send-t').textContent = TX('بنبعت نتيجتك للمعلمة…', 'Sending your result to your teacher…'); $('#sr-send-p').textContent = '';
-      submitResult({ id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), at: Date.now(), name: me.name, score: me.score, correct: me.correct, wrong: me.wrong, total: m.total, accuracy: me.accuracy, level: LEVEL_AR(me.accuracy), fastest: me.fastest == null ? '' : +(me.fastest / 1000).toFixed(1), timeSec: rec.t, rankAtFinish: me.rank, title: m.title || '' }).then((ok) => {
+      submitResult({ id: 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), at: Date.now(), name: me.name, score: me.score, correct: me.correct, wrong: me.wrong, total: m.total, accuracy: me.accuracy, level: LEVEL_AR(me.accuracy) + (S.missed && S.missed.length ? '§§' + JSON.stringify(S.missed) : ''), fastest: me.fastest == null ? '' : +(me.fastest / 1000).toFixed(1), timeSec: rec.t, rankAtFinish: me.rank, title: m.title || '' }).then((ok) => {
         if (ok) { $('#sr-send-t').textContent = TX('اتبعتت نتيجتك للمعلمة ✓', 'Your result was sent to your teacher ✓'); $('#sr-send-p').textContent = ''; }
         else { setManual(true); $('#sr-send-t').textContent = TX('ما قدرناش نبعت تلقائيًا', "Couldn't send automatically"); $('#sr-send-p').textContent = TX('انسخي الكود ده وابعتيه للمعلمة.', 'Copy this code and send it to your teacher.') + ' (' + lastSubmitErr + ')'; }
       });
@@ -1019,7 +1021,7 @@ function decodeCode(line) {
   try {
     line = line.trim(); if (line[0] !== 'N' || line.length < 10) return null;
     const o = JSON.parse(new TextDecoder().decode(b64u.dec(line.slice(1)))); const num = (v, d) => (Number.isFinite(Number(v)) ? Number(v) : d);
-    return { id: line, exam: String(o.e || '').slice(0, 60), name: String(o.n || '').slice(0, 40), score: num(o.s, 0), correct: num(o.c, 0), wrong: num(o.w, 0), total: num(o.q, 0), accuracy: num(o.a, 0), level: LEVEL_AR(num(o.a, 0)), fastest: o.f == null ? '' : (num(o.f, 0) / 1000).toFixed(1), timeSec: num(o.t, 0), at: num(o.d, Date.now()) };
+    return { id: line, exam: String(o.e || '').slice(0, 60), name: String(o.n || '').slice(0, 40), score: num(o.s, 0), correct: num(o.c, 0), wrong: num(o.w, 0), total: num(o.q, 0), accuracy: num(o.a, 0), level: LEVEL_AR(num(o.a, 0)), missed: Array.isArray(o.m) ? o.m.map((x) => String(x).slice(0, 80)) : [], fastest: o.f == null ? '' : (num(o.f, 0) / 1000).toFixed(1), timeSec: num(o.t, 0), at: num(o.d, Date.now()) };
   } catch (e) { return null; }
 }
 async function loadResults() {
@@ -1030,7 +1032,7 @@ async function loadResults() {
         const j = await gsCall(sheetCfg.id, { action: 'list', token: sheetCfg.token });
         if (!j || !j.ok) throw new Error('x');
         const seen = new Set(Res.rows.map((r) => r.id));
-        Res.rows = Res.rows.concat(j.rows.filter((r) => !seen.has(r.id)).map((r) => ({ ...r, exam: r.title || '', fromSheet: true, fastest: r.fastest })));
+        Res.rows = Res.rows.concat(j.rows.filter((r) => !seen.has(r.id)).map((r) => { const parts = String(r.level || '').split('§§'); let missed = []; try { if (parts[1]) missed = JSON.parse(parts[1]); } catch (e) { /* ignore */ } return { ...r, level: parts[0], missed, exam: r.title || '', fromSheet: true, fastest: r.fastest }; }));
         paintResults(); $('#rc-status').textContent = 'الجدول متصل ✓ (' + j.rows.length + ' نتيجة)';
       } catch (e) { $('#rc-status').textContent = 'ما قدرناش نوصل للجدول. اتأكدي من الرابط والـ TOKEN، ومن إن الصفحة مفتوحة من موقع عادي مش من جوّه Claude.'; }
     }
@@ -1043,6 +1045,23 @@ const fmtDate = (v) => { const d = new Date(v); return isNaN(d) ? '' : d.toLocal
 on('tlist', (m) => {
   Res.rows = m.rows || []; Res.game = m.game; Res.sheet = m.sheet; paintResults();
 });
+function paintMissed(rows) {
+  const box = $('#r-missed'); if (!box) return; box.replaceChildren();
+  if (!LOCAL) { box.hidden = true; return; }
+  const withData = rows.filter((r) => Array.isArray(r.missed)), cnt = new Map();
+  withData.forEach((r) => new Set(r.missed).forEach((t) => cnt.set(t, (cnt.get(t) || 0) + 1)));
+  const list = [...cnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10), n = withData.length;
+  box.hidden = !rows.length;
+  if (!rows.length) return;
+  box.append(h('h3', { style: 'font-weight:900;margin-bottom:6px', text: 'الأسئلة اللي الطلاب غلطوا فيها أكتر' }));
+  if (!list.length) { box.append(h('p', { class: 'hint', text: n ? 'مفيش أسئلة غلط لسه. ' : 'النتايج القديمة ما فيهاش تفاصيل الأسئلة. هتظهر مع الطلاب الجداد.' })); return; }
+  list.forEach(([t, c]) => {
+    const pct = Math.round(c / n * 100);
+    box.append(h('div', { style: 'display:grid;gap:3px;margin:8px 0' },
+      h('div', { style: 'display:flex;justify-content:space-between;gap:10px' }, h('span', { dir: 'auto', text: t }), h('b', { style: 'white-space:nowrap', text: c + ' من ' + n + ' (' + pct + '%)' })),
+      h('div', { style: 'height:8px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden' }, h('div', { style: 'height:100%;width:' + pct + '%;background:#ff7a59' }))));
+  });
+}
 function paintResults() {
   const q = $('#r-search').value.trim().toLowerCase();
   let rows = Res.rows;
@@ -1051,6 +1070,7 @@ function paintResults() {
     sel.replaceChildren(h('option', { value: '', text: 'كل الاختبارات' }), ...names.map((n) => h('option', { value: n, text: n }))); sel.value = names.includes(keep) ? keep : '';
     if (sel.value) rows = rows.filter((r) => r.exam === sel.value);
   }
+  paintMissed(rows);
   const sorted = rows.slice().sort(resCmp).map((r, i) => ({ ...r, rank: i + 1 }));
   const list = q ? sorted.filter((r) => String(r.name).toLowerCase().includes(q)) : sorted;
   $('#r-count').textContent = rows.length + ' طالب';
