@@ -73,7 +73,12 @@ textarea{resize:vertical;line-height:1.5}
 @keyframes pls{50%{opacity:.25;transform:scale(.7)}}
 .codebox{font-family:var(--mono);font-size:clamp(2.4rem,9vw,4.4rem);font-weight:700;letter-spacing:.18em;direction:ltr;text-align:center;padding:10px 18px;border-radius:20px;background:#04081a;border:2px dashed rgba(255,255,255,.3)}
 .qrbox{background:#fff;padding:12px;border-radius:16px;line-height:0;width:max-content}
-.qrbox svg{width:190px;height:190px;display:block}
+.qrbox{cursor:zoom-in;padding:18px}
+.qrbox svg{width:min(80vw,400px);height:min(80vw,400px);display:block}
+.qrbox:fullscreen{display:grid;place-items:center;background:#fff;cursor:zoom-out}
+.qrbox:fullscreen svg{width:min(94vw,94vh);height:min(94vw,94vh)}
+.qrbox.big{position:fixed;inset:0;z-index:99;border-radius:0;display:grid;place-items:center;cursor:zoom-out;padding:16px}
+.qrbox.big svg{width:min(92vw,92vh);height:min(92vw,92vh)}
 
 /* connection */
 .conn{position:fixed;top:0;inset-inline:0;z-index:100;background:var(--amber);color:#2a1d00;text-align:center;font-weight:800;padding:6px}

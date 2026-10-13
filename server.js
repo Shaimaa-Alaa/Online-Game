@@ -47,7 +47,7 @@ function sanitizeGame(g) {
   g = g || {};
   const title = cleanText(g.title, 60).trim() || 'سباق المعرفة';
   const st = g.settings || {};
-  const settings = { shuffleQuestions: !!st.shuffleQuestions, shuffleChoices: !!st.shuffleChoices, count: clamp(parseInt(st.count, 10) || 0, 0, 100), lang: st.lang === 'en' ? 'en' : 'ar' };
+  const settings = { shuffleQuestions: !!st.shuffleQuestions, shuffleChoices: !!st.shuffleChoices, count: clamp(parseInt(st.count, 10) || 0, 0, 100), secs: clamp(parseInt(st.secs, 10) || 0, 0, 180), lang: st.lang === 'en' ? 'en' : 'ar' };
   const qs = [];
   (Array.isArray(g.questions) ? g.questions : []).slice(0, 100).forEach((q, i) => {
     if (!q) return;
@@ -96,6 +96,7 @@ function prepareRound(game) {
   let qs = game.questions.map((q) => ({ ...q }));
   const cnt = game.settings.count;
   if (cnt > 0 && cnt < qs.length) { const keep = new Set(shuffle(qs.map((q, i) => i)).slice(0, cnt)); qs = qs.filter((q, i) => keep.has(i)); }   /* "play N of the questions": a random N, original order kept */
+  if (game.settings.secs > 0) qs = qs.map((q) => ({ ...q, secs: game.settings.secs }));   /* one time limit for the whole exam */
   if (game.settings.shuffleQuestions) qs = shuffle(qs);
   qs = qs.map((q) => {
     if (q.type === 'short') return q;

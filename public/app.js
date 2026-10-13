@@ -70,24 +70,35 @@ function sfx(kind) {
     });
   } catch (e) { /* ignore */ }
 }
+/* race-car engine: a low rumbling "four-stroke" body (soft saw + sub sine through a low-pass, pulsed by a firing-rate LFO) plus a little filtered air noise.
+   Pitch and brightness follow the car's speed; it stays quiet and warm instead of buzzy. */
 function engineSet(v, accel) {
   if (muted) { if (eng) eng.g.gain.value = 0; return; }
   try {
     if (!eng) {
-      const a = audioCtx(), o1 = a.createOscillator(), o2 = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
-      o1.type = 'sawtooth'; o2.type = 'square'; f.type = 'lowpass'; f.Q.value = 2; g.gain.value = 0;
-      o1.connect(f); o2.connect(f); f.connect(g); g.connect(a.destination); o1.start(); o2.start();
-      eng = { o1, o2, f, g };
+      const a = audioCtx(), o1 = a.createOscillator(), o2 = a.createOscillator(), o3 = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+      const pulse = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
+      o1.type = 'sawtooth'; o2.type = 'sine'; o3.type = 'triangle'; f.type = 'lowpass'; f.Q.value = 0.9; g.gain.value = 0; pulse.gain.value = 0.82;
+      lfo.type = 'sine'; lg.gain.value = 0.16; lfo.connect(lg); lg.connect(pulse.gain);       /* cylinder "pulse" */
+      const len = a.sampleRate * 2, nb = a.createBuffer(1, len, a.sampleRate), d = nb.getChannelData(0); let last = 0;
+      for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }   /* brown noise: rumble, not hiss */
+      const ns = a.createBufferSource(), nf = a.createBiquadFilter(), ng = a.createGain(); ns.buffer = nb; ns.loop = true; nf.type = 'lowpass'; nf.frequency.value = 420; ng.gain.value = 0.5;
+      ns.connect(nf); nf.connect(ng); ng.connect(pulse);
+      o1.connect(f); o2.connect(f); o3.connect(f); f.connect(pulse); pulse.connect(g); g.connect(a.destination);
+      o1.start(); o2.start(); o3.start(); lfo.start(); ns.start();
+      eng = { o1, o2, o3, f, g, lfo, ns };
     }
-    const t = ac.currentTime, rpm = 48 + v * 150 + (accel ? 14 : 0);
-    eng.o1.frequency.setTargetAtTime(rpm, t, 0.06); eng.o2.frequency.setTargetAtTime(rpm * 0.5, t, 0.06);
-    eng.f.frequency.setTargetAtTime(380 + v * 1500, t, 0.08);
-    eng.g.gain.setTargetAtTime(0.012 + v * 0.03 + (accel ? 0.012 : 0), t, 0.08);
+    const t = ac.currentTime, sp = clamp(v, 0, 1), gear = Math.floor(sp * 4.999), inGear = sp * 5 - gear;          /* five "gears": the pitch climbs, drops a little, climbs again */
+    const rpm = 62 + (gear * 0.12 + inGear * 0.88) * 78 + (accel ? 10 : 0);
+    eng.o1.frequency.setTargetAtTime(rpm, t, 0.07); eng.o2.frequency.setTargetAtTime(rpm * 0.5, t, 0.07); eng.o3.frequency.setTargetAtTime(rpm * 1.5, t, 0.07);
+    eng.lfo.frequency.setTargetAtTime(rpm * 0.25, t, 0.07);
+    eng.f.frequency.setTargetAtTime(240 + sp * 760 + (accel ? 120 : 0), t, 0.1);
+    eng.g.gain.setTargetAtTime(0.035 + sp * 0.05 + (accel ? 0.015 : 0), t, 0.1);
   } catch (e) { /* ignore */ }
 }
 function engineStop() {
   if (!eng) return; const e = eng; eng = null;
-  try { e.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch (x) { /* ignore */ } }, 400); } catch (x) { /* ignore */ }
+  try { e.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.o3.stop(); e.lfo.stop(); e.ns.stop(); } catch (x) { /* ignore */ } }, 400); } catch (x) { /* ignore */ }
 }
 function paintMute() {
   $('#s2-on').style.display = muted ? 'none' : ''; $('#s2-off').style.display = muted ? '' : 'none';
@@ -790,11 +801,11 @@ const b64u = {
 };
 function compactGame(g) {
   const sh = sheetCfg.id && sheetCfg.key ? { u: sheetCfg.id, k: sheetCfg.key } : {};
-  return { ...sh, t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0],
+  return { ...sh, t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0, g.settings.secs || 0],
     q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') { o.x = q.accepted; if (q.essay) { o.e = 1; if (q.model) o.m = q.model; } else if (q.run) o.r = 1; } if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
 }
 function expandGame(c) {
-  return { sheet: c.u && c.k ? { id: String(c.u), key: String(c.k) } : null, title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar' },
+  return { sheet: c.u && c.k ? { id: String(c.u), key: String(c.k) } : null, title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar', secs: c.s[4] || 0 },
     questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], essay: !!o.e, run: !!o.r, model: o.m || '', code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
 }
 async function pack(game) {
@@ -811,7 +822,8 @@ function showPub(link, note, code) {
   const box = $('#pub-box'); box.hidden = false;
   $('#pub-title').textContent = 'اللعبة جاهزة ✓'; $('#pub-note').textContent = note; $('#pub-link').value = link;
   const qrEl = $('#pub-qr'); qrEl.textContent = '';
-  if (link.length < 900) { try { const qr = qrcode(0, 'L'); qr.addData(link); qr.make(); qrEl.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 }); } catch (e) { qrEl.textContent = ''; } }
+  qrEl.classList.remove('big'); qrEl.onclick = () => { try { if (document.fullscreenElement) document.exitFullscreen(); else qrEl.requestFullscreen().catch(() => qrEl.classList.toggle('big')); } catch (e) { qrEl.classList.toggle('big'); } }; qrEl.title = 'اضغطي لتكبير الـ QR';
+  try { const qr = qrcode(0, 'L'); qr.addData(link); qr.make(); qrEl.innerHTML = qr.createSvgTag({ scalable: true, margin: 0 }); } catch (e) { qrEl.textContent = 'الرابط طويل أوي للـ QR. قلّلي عدد الأسئلة أو ابعتي الرابط.'; qrEl.style.lineHeight = '1.4'; }
   $('#pub-codebox').hidden = !code; $('#pub-code').value = code || '';
   box.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
@@ -845,7 +857,7 @@ function saveCur() {
 function newExam(name) { return { id: uid(), at: Date.now(), game: { title: name || 'اختبار جديد', settings: { shuffleQuestions: false, shuffleChoices: true, count: 0, lang: 'ar' }, questions: [] } }; }
 function openExam(item) {
   cur = item ? { id: item.id, at: item.at, game: JSON.parse(JSON.stringify(item.game)) } : newExam();
-  const g = cur.game; $('#ex-title').value = g.title; $('#ex-lang').value = g.settings.lang === 'en' ? 'en' : 'ar'; $('#ex-limit').value = g.settings.count || '';
+  const g = cur.game; $('#ex-title').value = g.title; $('#ex-lang').value = g.settings.lang === 'en' ? 'en' : 'ar'; $('#ex-limit').value = g.settings.count || ''; $('#ex-secs').value = String(g.settings.secs || 0);
   $('#ex-shq').checked = !!g.settings.shuffleQuestions; $('#ex-shc').checked = g.settings.shuffleChoices !== false;
   $('#pub-box').hidden = true; $('#g-err').hidden = true; $('#ex-home').hidden = true; $('#ex-edit').hidden = false; $('#ex-saved').textContent = item ? 'بيتحفظ تلقائيًا ✓' : '';
   if (!item) saveCur();
@@ -854,10 +866,10 @@ function openExam(item) {
 function closeExam() { cur = null; $('#ex-edit').hidden = true; $('#ex-home').hidden = false; renderGames(); }
 function syncExamFields() {
   if (!cur) return; const g = cur.game;
-  g.title = $('#ex-title').value.trim() || 'اختبار'; g.settings.lang = $('#ex-lang').value; g.settings.count = Number($('#ex-limit').value) || 0;
+  g.title = $('#ex-title').value.trim() || 'اختبار'; g.settings.lang = $('#ex-lang').value; g.settings.count = Number($('#ex-limit').value) || 0; g.settings.secs = Number($('#ex-secs').value) || 0;
   g.settings.shuffleQuestions = $('#ex-shq').checked; g.settings.shuffleChoices = $('#ex-shc').checked; saveCur();
 }
-['ex-title', 'ex-lang', 'ex-limit', 'ex-shq', 'ex-shc'].forEach((id) => { $('#' + id).addEventListener('input', syncExamFields); $('#' + id).addEventListener('change', syncExamFields); });
+['ex-title', 'ex-lang', 'ex-limit', 'ex-secs', 'ex-shq', 'ex-shc'].forEach((id) => { $('#' + id).addEventListener('input', syncExamFields); $('#' + id).addEventListener('change', syncExamFields); });
 function renderExam() {
   if (!cur) return; const box = $('#ex-qs'); box.replaceChildren(); const qs = cur.game.questions; $('#ex-n').textContent = qs.length + ' سؤال';
   qs.forEach((q, i) => {
@@ -1151,10 +1163,18 @@ function paintResults() {
   if (!LOCAL) $('#r-status').textContent = st.join(' ');
   const a = $('#r-sheet'); a.hidden = !sh.link; if (sh.link) a.href = sh.link;
   const body = $('#r-rows'); body.replaceChildren();
-  if (!list.length) { body.append(h('tr', {}, h('td', { colspan: '10', class: 'hint', text: 'مفيش درجات لسه.' }))); return; }
-  list.forEach((r) => body.append(h('tr', {}, h('td', { text: String(r.rank) }), h('td', { text: r.name, dir: 'auto' }), h('td', { text: String(r.score) }), h('td', { text: String(r.wrong) }),
+  if (!list.length) { body.append(h('tr', {}, h('td', { colspan: '11', class: 'hint', text: 'مفيش درجات لسه.' }))); return; }
+  const delRow = (r) => { Res.rows = Res.rows.filter((x) => x.id !== r.id); LRes.save(Res.rows.filter((x) => !x.fromSheet)); if (r.fromSheet && sheetCfg.id) gsCall(sheetCfg.id, { action: 'delete', token: sheetCfg.token, id: r.id }).catch(() => {}); };
+  list.forEach((r) => body.append(h('tr', {}, h('td', { text: String(r.rank) }),
+    h('td', {}, h('div', { dir: 'auto', style: 'font-weight:900', text: r.name }), Array.isArray(r.missed) && r.missed.length ? h('div', { class: 'hint', dir: 'auto', style: 'color:#ff8d97;margin-top:4px;line-height:1.5' }, ...r.missed.map((t) => h('div', { text: '✗ ' + t }))) : (r.missed && r.wrong === 0 ? h('div', { class: 'hint', style: 'color:#2fd27a', text: '✓ جاوب كل الأسئلة صح' }) : null)),
+    h('td', { dir: 'auto', text: r.exam || '' }), h('td', { text: String(r.score) }), h('td', { text: String(r.wrong) }),
     h('td', { text: r.correct + '/' + r.total }), h('td', { text: r.accuracy + '%' }), h('td', { text: r.level }), h('td', { text: r.timeSec + ' ث' }), h('td', { text: fmtDate(r.at) }),
-    h('td', {}, LOCAL ? h('button', { class: 'btn btn-red btn-sm', type: 'button', text: 'شيل', onclick: () => { Res.rows = Res.rows.filter((x) => x.id !== r.id); LRes.save(Res.rows.filter((x) => !x.fromSheet)); paintResults(); if (r.fromSheet && sheetCfg.id) gsCall(sheetCfg.id, { action: 'delete', token: sheetCfg.token, id: r.id }).catch(() => {}); } }) : null))));
+    h('td', {}, LOCAL ? h('button', { class: 'btn btn-red btn-sm', type: 'button', text: 'شيل', onclick: () => { delRow(r); paintResults(); } }) : null))));
+  const clr = $('#r-clear'); clr.hidden = !(LOCAL && rows.length); clr.textContent = 'مسح النتايج المعروضة (' + rows.length + ')'; clr.dataset.armed = '';
+  clr.onclick = () => {
+    if (!clr.dataset.armed) { clr.dataset.armed = '1'; clr.textContent = 'اضغطي تاني للتأكيد: هيتمسح ' + rows.length + ' نتيجة'; setTimeout(() => { if (clr.dataset.armed) { clr.dataset.armed = ''; clr.textContent = 'مسح النتايج المعروضة (' + rows.length + ')'; } }, 5000); return; }
+    clr.dataset.armed = ''; rows.slice().forEach(delRow); paintResults();
+  };
 }
 $('#r-refresh').addEventListener('click', loadResults);
 $('#r-search').addEventListener('input', paintResults);

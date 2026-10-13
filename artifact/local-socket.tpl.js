@@ -88,14 +88,23 @@
       if (ok) { b.correct++; b.score += Math.round(q.points * (0.5 + 0.5 * clamp(1 - frac, 0, 1))); if (b.fastest == null || ms < b.fastest) b.fastest = ms; } else b.wrong++;
       b.times.push(ms);
     });
-    /* podium guarantee: only the two strongest rivals may stay ahead of the player; the rest are held back to the player's level */
-    var lead = room.bots.slice().sort(function (x, y) { return y.acc - x.acc; }).slice(0, 2);
+    /* finishing place: a perfect run always wins; with mistakes the child can still take 1st or 2nd; 3rd only when most answers were wrong.
+       Rivals are computer racers, so we shape how many of them may be ahead (never more than the place allows). */
+    var last = room.round + 1 >= room.qs.length, total = room.qs.length || 1;
+    var ahead = p.wrong === 0 ? 0 : 2;                                   /* during the race: nobody may beat a clean run */
+    if (last) {
+      var acc = p.correct / total;
+      ahead = p.wrong === 0 ? 0 : acc >= 0.75 ? (Math.random() < 0.45 ? 0 : 1) : acc >= 0.4 ? 1 : 2;
+    }
+    var lead = room.bots.slice().sort(function (x, y) { return y.acc - x.acc; }).slice(0, ahead);
     room.bots.forEach(function (b) {
-      if (lead.indexOf(b) >= 0) return;
+      if (lead.indexOf(b) >= 0) {                                         /* a leader must really be ahead on the final board */
+        if (last && (b.correct < p.correct || (b.correct === p.correct && b.score <= p.score))) { b.correct = Math.max(b.correct, p.correct); b.score = Math.max(b.score, p.score + 25 + Math.floor(Math.random() * 40)); }
+        return;
+      }
       if (b.correct > p.correct) { b.wrong += b.correct - p.correct; b.correct = p.correct; b.score = Math.min(b.score, Math.max(0, p.score - 1)); }
       else if (b.correct === p.correct && b.score >= p.score) b.score = Math.max(0, p.score - 1);
     });
-    var last = room.round + 1 >= room.qs.length;
     me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
     room.timer = setTimeout(function () { me.next(); }, last ? 2600 : 1200);
   };
