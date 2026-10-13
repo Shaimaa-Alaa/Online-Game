@@ -147,6 +147,7 @@
             <button class="btn btn-blue" type="button" data-add="tf">صح / غلط</button>
             <button class="btn btn-blue" type="button" data-add="short">أكمل / إجابة قصيرة</button>
             <button class="btn btn-blue" type="button" data-add="essay">مقالي</button>
+            <button class="btn btn-blue" type="button" data-add="code">برمجة (كود بايثون)</button>
           </div>
           <div class="addgrid" style="margin-top:8px">
             <button class="btn btn-go" id="ex-ai" type="button" hidden>✨ ارفعي ملف وولّدي أسئلة</button>
@@ -266,10 +267,10 @@
     <p class="hint">ارفعي درس أو ملف (PDF أو Word أو Excel أو نص أو صورة صفحة). Claude هيقترح أسئلة منه، وهتتضاف للاختبار اللي بتعدّليه وتقدري تراجعيها وتعدّلي فيها.</p>
     <div class="field"><label for="ai-file">الملف</label><input id="ai-file" type="file" accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.md,image/png,image/jpeg,image/webp"></div>
     <div class="grid2">
-      <div class="field"><label for="ai-n">عدد الأسئلة</label><input id="ai-n" type="number" min="1" max="30" value="8"></div>
+      <div class="field"><label for="ai-n">عدد الأسئلة</label><select id="ai-n"><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10" selected>10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option></select></div>
       <div class="field"><label for="ai-lang">لغة الأسئلة</label><select id="ai-lang"><option value="ar">عربي</option><option value="en">English</option></select></div>
     </div>
-    <div class="field"><span class="lbl">أنواع الأسئلة</span><div class="seg"><label><input type="checkbox" class="ai-t" value="mcq" checked> اختيار من متعدد</label><label><input type="checkbox" class="ai-t" value="tf" checked> صح / غلط</label><label><input type="checkbox" class="ai-t" value="short"> أكمل / إجابة قصيرة</label><label><input type="checkbox" class="ai-t" value="essay"> مقالي</label></div></div>
+    <div class="field"><span class="lbl">أنواع الأسئلة</span><div class="seg"><label><input type="checkbox" class="ai-t" value="mcq" checked> اختيار من متعدد</label><label><input type="checkbox" class="ai-t" value="tf" checked> صح / غلط</label><label><input type="checkbox" class="ai-t" value="short"> أكمل / إجابة قصيرة</label><label><input type="checkbox" class="ai-t" value="essay"> مقالي</label><label><input type="checkbox" class="ai-t" value="code"> برمجة (كود بايثون)</label></div></div>
     <div class="field"><span class="lbl">مستويات الصعوبة</span><div class="seg"><label><input type="checkbox" class="ai-d" value="easy" checked> سهل</label><label><input type="checkbox" class="ai-d" value="medium" checked> متوسط</label><label><input type="checkbox" class="ai-d" value="hard"> صعب</label></div></div>
     <div class="field"><label for="ai-extra">تعليمات إضافية (اختياري)</label><input id="ai-extra" type="text" maxlength="200" dir="auto" placeholder="مثال: ركّزي على الفصل الثاني، مستوى مبتدئ"></div>
     <p class="hint" id="ai-status" aria-live="polite"></p>
@@ -291,7 +292,7 @@
       <div class="copt"><span class="ck" style="background:#22c55e">D</span><input type="text" id="mq-a3" maxlength="200" dir="auto"></div>
       <div class="field"><label for="mq-ans">الإجابة الصحيحة</label><select id="mq-ans"><option value="0">A</option><option value="1">B</option><option value="2">C</option><option value="3">D</option></select></div>
     </div>
-    <div id="mq-short" hidden class="field"><label><input type="checkbox" id="mq-essay"> سؤال مقالي (الطالب يكتب إجابة طويلة، وبتتصحح بالكلمات المفتاحية)</label><label for="mq-acc" id="mq-acc-l">الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)</label><textarea id="mq-acc" rows="3" maxlength="400" dir="auto" placeholder="القاهرة&#10;Cairo"></textarea><span class="hint">التصحيح بيتجاهل التشكيل والهمزات والمسافات الزايدة وحروف الكبير والصغير.</span></div>
+    <div id="mq-short" hidden class="field"><label><input type="checkbox" id="mq-run"> سؤال برمجة: الطالب يكتب كود بايثون وبيتنفّذ، والإجابة الصح هي <b>اللي الكود يطبعه</b> (اكتبي الناتج المتوقع تحت). الكود اللي في خانة الكود بيبقى نقطة بداية للطالب.</label><label><input type="checkbox" id="mq-essay"> سؤال مقالي (الطالب يكتب إجابة طويلة، وبتتصحح بالكلمات المفتاحية)</label><label for="mq-acc" id="mq-acc-l">الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)</label><textarea id="mq-acc" rows="3" maxlength="400" dir="auto" placeholder="القاهرة&#10;Cairo"></textarea><span class="hint">التصحيح بيتجاهل التشكيل والهمزات والمسافات الزايدة وحروف الكبير والصغير.</span></div>
     <div id="mq-model-f" hidden class="field"><label for="mq-model">الإجابة النموذجية (بتظهر للطالب بعد السؤال)</label><textarea id="mq-model" rows="3" maxlength="500" dir="auto"></textarea></div>
     <div id="mq-tf" hidden class="field"><label for="mq-tfans">الإجابة الصحيحة</label><select id="mq-tfans"><option value="0">صح (True)</option><option value="1">غلط (False)</option></select></div>
     <div class="grid2">

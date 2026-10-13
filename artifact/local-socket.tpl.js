@@ -59,7 +59,7 @@
     if (room.round >= room.qs.length) return me.finish();
     var q = room.qs[room.round];
     room.state = 'question'; room.answers = null; room.qStart = now(); room.endsAt = room.qStart + q.secs * 1000;
-    me.emit({ t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() });
+    me.emit({ t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, run: !!q.run, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() });
     room.timer = setTimeout(function () { me.reveal(); }, q.secs * 1000 + 700);
   };
   /* everyone sorted like the real server: more correct answers first, then more points (= faster answers), then less total time */

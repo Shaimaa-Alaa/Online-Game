@@ -56,7 +56,9 @@ function sanitizeGame(g) {
     if (!text) return;
     let choices, answer = parseInt(q.answer, 10), accepted = [];
     if (type === 'short') {
-      accepted = (Array.isArray(q.accepted) ? q.accepted : [String(q.accepted || q.answerText || '')]).join('|').split(/[|\n،]/).map((a) => cleanText(a, 100).trim()).filter(Boolean).slice(0, 8);
+      accepted = q.run && !q.essay                           /* coding question: each accepted answer is a whole (maybe multi-line) printed output */
+        ? (Array.isArray(q.accepted) ? q.accepted : [String(q.accepted || '')]).map((a) => cleanText(a, 300).trim()).filter(Boolean).slice(0, 4)
+        : (Array.isArray(q.accepted) ? q.accepted : [String(q.accepted || q.answerText || '')]).join('|').split(/[|\n،]/).map((a) => cleanText(a, 100).trim()).filter(Boolean).slice(0, 8);
       if (!accepted.length) return;
       choices = []; answer = 0;
     } else if (type === 'tf') { choices = settings.lang === 'en' ? ['True', 'False'] : ['صح', 'غلط']; if (!(answer === 0 || answer === 1)) answer = 0; }
@@ -67,7 +69,7 @@ function sanitizeGame(g) {
       if (choices.filter(Boolean).length < 2 || !choices[answer]) return;
     }
     qs.push({
-      id: 'q' + i, type, accepted, essay: type === 'short' && !!q.essay, model: type === 'short' ? cleanText(q.model, 500).trim() : '', q: text, code: cleanText(q.code, 800).replace(/\s+$/, ''), choices, answer,
+      id: 'q' + i, type, accepted, essay: type === 'short' && !!q.essay, run: type === 'short' && !q.essay && !!q.run, model: type === 'short' ? cleanText(q.model, 500).trim() : '', q: text, code: cleanText(q.code, 800).replace(/\s+$/, ''), choices, answer,
       secs: clamp(Math.round(Number(q.secs)) || 20, 5, 180), points: clamp(Math.round(Number(q.points)) || 100, 10, 1000),
       category: cleanText(q.category, 40), difficulty: ['easy', 'medium', 'hard'].includes(q.difficulty) ? q.difficulty : 'medium',
     });
@@ -84,6 +86,7 @@ function judge(q, a) {
     const t = norm(a.text), keys = q.accepted.map(norm).filter(Boolean);
     return !!t && keys.length > 0 && keys.filter((k) => t.includes(k)).length >= Math.ceil(keys.length / 2);
   }
+  if (q.type === 'short' && q.run) { const f = (x) => String(x || '').replace(/\r/g, '').split('\n').map((l) => l.trimEnd()).join('\n').trim(); return !!f(a.text) && q.accepted.some((x) => f(x) === f(a.text)); }   /* coding question: the page runs the student's code and sends its printed output */
   if (q.type === 'short') { const t = norm(a.text); return !!t && q.accepted.some((x) => norm(x) === t); }
   return a.choice === q.answer;
 }
@@ -157,7 +160,7 @@ function pushLobby(room) {
 
 function questionMsg(room) {
   const q = room.qs[room.round];
-  return { t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() };
+  return { t: 'question', n: room.round, total: room.qs.length, type: q.type, essay: !!q.essay, run: !!q.run, q: q.q, code: q.code, choices: q.choices, secs: q.secs, points: q.points, difficulty: q.difficulty, category: q.category, endsAt: room.endsAt, serverNow: now() };
 }
 
 

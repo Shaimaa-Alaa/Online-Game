@@ -296,6 +296,7 @@ function endRace() {
 }
 on('countdown', (m) => {
   if (S.role === 'student') S.missed = [];
+  try { if (S.role === 'student' && window.__LOCAL && window.__LOCAL.getGame().questions.some((q) => q.run)) PyRun.start(); } catch (e) { /* ignore */ }
   if (S.role !== 'student' || !S.student) return;
   Race.lang = m.lang === 'en' ? 'en' : 'ar';
   if (S.bestRtt > 1e8) S.offset = m.serverNow - Date.now();
@@ -341,6 +342,32 @@ function rebuildRaceFromLobby(m) {
   let view = null; try { view = R3 ? R3.create($('#stage'), R, { onFrame: engineSet }) : null; } catch (e) { view = null; if (window.console) console.error('race3d create failed', e); }
   if (view) { Race.view = view; Race.needSnap = true; view.countdown(0).then(() => {}); Race.ready = true; } else { buildFlat(list); Race.ready = true; }
 }
+/* ----- coding questions: the student's Python runs in the browser (Pyodide, in a worker so an endless loop can't freeze the game) ----- */
+const PYO = 'https://cdn.jsdelivr.net/pyodide/v0.26.4/full/';
+const PyRun = {
+  w: null, ready: null,
+  start() {
+    if (this.w) return this.ready;
+    const src = "importScripts('" + PYO + "pyodide.js');let py=null,out=[];self.onmessage=async(e)=>{const m=e.data;try{if(!py){py=await loadPyodide({indexURL:'" + PYO + "'});py.setStdout({batched:(t)=>out.push(t)});py.setStderr({batched:()=>{}});}" +
+      "if(m.warm){self.postMessage({id:m.id,ok:true,out:''});return;}out=[];try{await py.runPythonAsync(m.code);self.postMessage({id:m.id,ok:true,out:out.join('\\n')});}catch(err){self.postMessage({id:m.id,ok:false,out:out.join('\\n'),err:String(err.message||err).split('\\n').slice(-2).join(' ')});}}catch(err){self.postMessage({id:m.id,ok:false,fatal:true,err:String(err&&err.message||err)});}};";
+    try { this.w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' }))); } catch (e) { this.w = null; this.ready = Promise.resolve(false); return this.ready; }
+    this.n = 0; this.ready = this.call({ warm: true }, 60000).then((r) => !!(r && r.ok), () => false);
+    return this.ready;
+  },
+  call(msg, ms) {
+    return new Promise((ok, no) => {
+      if (!this.w) return no(new Error('nw'));
+      const id = ++this.n, w = this.w; msg.id = id;
+      const done = (e) => { if (e.data.id !== id) return; w.removeEventListener('message', done); clearTimeout(t); ok(e.data); };
+      const t = setTimeout(() => { w.removeEventListener('message', done); if (this.w === w) { w.terminate(); this.w = null; this.ready = null; } no(new Error('timeout')); }, ms);
+      w.addEventListener('message', done); w.postMessage(msg);
+    });
+  },
+  async run(code) {
+    await this.start();
+    try { return await this.call({ code }, 5000); } catch (e) { return { ok: false, out: '', err: e.message === 'timeout' ? 'TIMEOUT (الكود فضل شغال كتير)' : 'ما قدرناش نشغّل الكود' }; }
+  },
+};
 function isCodey(t) { return !/[؀-ۿ]/.test(t) && /[()\[\]{}=_"'.+*\/<>]/.test(t); }
 function showQuestion(m) {
   Race.q = m; Race.answered = -1; Race.lastTick = -1;
@@ -350,7 +377,22 @@ function showQuestion(m) {
   const code = $('#qcode'); code.hidden = !(m.code && m.code.trim()); code.textContent = m.code || '';
   const ch = $('#choices'); ch.replaceChildren(); ch.classList.toggle('short', m.type === 'short');
   $('#qchips').textContent = (m.points || 0) + ' PTS' + (m.difficulty ? ' · ' + DIFF[m.difficulty] : '') + (m.category ? ' · ' + m.category : '');
-  if (m.type === 'short') {
+  if (m.type === 'short' && m.run) {
+    const ta = h('textarea', { class: 'shortin codein', id: 'shortin', rows: 7, maxlength: 600, autocomplete: 'off', spellcheck: 'false', dir: 'ltr', 'aria-label': 'code', style: 'resize:none;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:15px;line-height:1.4;tab-size:4;white-space:pre' });
+    ta.value = m.code || ''; code.hidden = true;
+    const out = h('pre', { id: 'codeout', class: 'hint', dir: 'ltr', style: 'margin:0;min-height:1.4em;white-space:pre-wrap' });
+    const go = h('button', { type: 'button', class: 'btn btn-go', text: TX('شغّلي وأرسلي ▶', 'Run & submit ▶') });
+    const submit = async () => {
+      if (Race.answered >= 0 || !ta.value.trim()) return;
+      go.disabled = true; out.textContent = TX('بنشغّل الكود…', 'Running…');
+      const r = await PyRun.run(ta.value);
+      if (Race.answered >= 0 || !Race.q || Race.q.n !== m.n || nowS() > m.endsAt + 300) return;
+      out.textContent = r.ok ? r.out : (r.err || 'error'); chooseText(r.ok ? (r.out.trim() || '(empty)') : 'ERROR');
+    };
+    go.addEventListener('click', submit);
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Tab') { e.preventDefault(); const p = ta.selectionStart; ta.value = ta.value.slice(0, p) + '    ' + ta.value.slice(ta.selectionEnd); ta.selectionStart = ta.selectionEnd = p + 4; } else if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); submit(); } });
+    ch.append(ta, go, out); PyRun.start();
+  } else if (m.type === 'short') {
     const inp = m.essay ? h('textarea', { class: 'shortin', id: 'shortin', rows: 4, maxlength: 300, autocomplete: 'off', dir: 'auto', placeholder: TX('اكتبي إجابتك هنا…', 'Type your answer…'), 'aria-label': 'إجابتك', style: 'resize:none' }) : h('input', { type: 'text', class: 'shortin', id: 'shortin', maxlength: 100, autocomplete: 'off', dir: 'auto', placeholder: TX('اكتبي إجابتك هنا…', 'Type your answer…'), 'aria-label': 'إجابتك' });
     const go = h('button', { type: 'button', class: 'btn btn-go', text: TX('إرسال ↵', 'Submit ↵') });
     const submit = () => { const v = inp.value.trim(); if (v) chooseText(v); };
@@ -547,7 +589,7 @@ function qBody(q) {
   return h('div', {}, h('div', { class: 'qt', text: q.q }),
     q.code ? h('pre', { class: 'code', text: q.code, style: 'margin:6px 0' }) : null,
     h('div', { class: 'qc' }, q.type === 'short' ? (q.accepted || []).map((c) => h('span', { class: 'ans ok', text: c })).concat(q.essay && q.model ? [h('span', { class: 'ans', text: 'نموذجية: ' + q.model })] : []) : q.choices.filter(Boolean).map((c, i) => h('span', { class: 'ans' + (c === q.choices[q.answer] ? ' ok' : ''), text: (q.type === 'tf' ? '' : LETTERS[q.choices.indexOf(c)] + ') ') + c }))),
-    h('div', { class: 'qc' }, h('span', { class: 'chip', text: q.type === 'tf' ? 'صح/غلط' : q.type === 'short' ? (q.essay ? 'مقالي' : 'أكمل / إجابة قصيرة') : 'اختيار من متعدد' }), h('span', { class: 'chip', text: DIFF[q.difficulty] }), q.category ? h('span', { class: 'chip', text: q.category }) : null, h('span', { class: 'chip', text: q.secs + ' ث' }), h('span', { class: 'chip', text: q.points + ' نقطة' })));
+    h('div', { class: 'qc' }, h('span', { class: 'chip', text: q.type === 'tf' ? 'صح/غلط' : q.type === 'short' ? (q.essay ? 'مقالي' : q.run ? 'برمجة' : 'أكمل / إجابة قصيرة') : 'اختيار من متعدد' }), h('span', { class: 'chip', text: DIFF[q.difficulty] }), q.category ? h('span', { class: 'chip', text: q.category }) : null, h('span', { class: 'chip', text: q.secs + ' ث' }), h('span', { class: 'chip', text: q.points + ' نقطة' })));
 }
 function renderBank() {
   const cats = [...new Set(bank.map((q) => q.category).filter(Boolean))];
@@ -582,18 +624,18 @@ function download(name, text, type) {
 /* ----- question editor ----- */
 let editing = null, cur = null;
 function qType() { return $('input[name="mq-type"]:checked').value; }
-function syncType() { const t = qType(); $('#mq-mcq').hidden = t !== 'mcq'; $('#mq-tf').hidden = t !== 'tf'; $('#mq-short').hidden = t !== 'short'; const es = t === 'short' && $('#mq-essay').checked; $('#mq-model-f').hidden = !es; $('#mq-acc-l').textContent = es ? 'الكلمات المفتاحية (كلمة أو عبارة في كل سطر، الإجابة صح لو الطالب ذكر نصها على الأقل)' : 'الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)'; }
+function syncType() { const t = qType(); $('#mq-mcq').hidden = t !== 'mcq'; $('#mq-tf').hidden = t !== 'tf'; $('#mq-short').hidden = t !== 'short'; const es = t === 'short' && $('#mq-essay').checked; if (es) $('#mq-run').checked = false; const rn = t === 'short' && $('#mq-run').checked; $('#mq-model-f').hidden = !es; $('#mq-acc-l').textContent = es ? 'الكلمات المفتاحية (كلمة أو عبارة في كل سطر، الإجابة صح لو الطالب ذكر نصها على الأقل)' : rn ? 'الناتج المتوقع (اللي الكود يطبعه بالظبط، حتى لو كذا سطر)' : 'الإجابة الصحيحة (اكتبي أكتر من صيغة مقبولة، كل صيغة في سطر)'; }
 const PRESETS = [5, 10, 15, 20, 30, 45, 60];
 function setSecs(v) { const sel = $('#mq-secs-sel'); v = Number(v) || 20; if (PRESETS.includes(v)) { sel.value = String(v); $('#mq-secs').hidden = true; } else { sel.value = 'custom'; $('#mq-secs').hidden = false; } $('#mq-secs').value = v; }
 $('#mq-secs-sel').addEventListener('change', (e) => { if (e.target.value === 'custom') { $('#mq-secs').hidden = false; $('#mq-secs').focus(); } else { $('#mq-secs').hidden = true; $('#mq-secs').value = e.target.value; } });
-$$('input[name="mq-type"]').forEach((r) => r.addEventListener('change', syncType)); $('#mq-essay').addEventListener('change', syncType);
+$$('input[name="mq-type"]').forEach((r) => r.addEventListener('change', syncType)); $('#mq-essay').addEventListener('change', syncType); $('#mq-run').addEventListener('change', syncType);
 function openEditor(q, preset) {
   editing = q; $('#mq-title').textContent = q ? 'تعديل السؤال' : 'سؤال جديد'; $('#mq-err').hidden = true;
-  const t = q ? q.type : (preset === 'essay' ? 'short' : preset || 'mcq'); $$('input[name="mq-type"]').forEach((r) => { r.checked = r.value === t; });
+  const t = q ? q.type : (preset === 'essay' || preset === 'code' ? 'short' : preset || 'mcq'); $$('input[name="mq-type"]').forEach((r) => { r.checked = r.value === t; });
   $('#mq-q').value = q ? q.q : ''; $('#mq-code').value = q ? q.code : '';
   for (let i = 0; i < 4; i++) $('#mq-a' + i).value = q && q.type === 'mcq' ? q.choices[i] || '' : '';
   $('#mq-ans').value = String(q && q.type === 'mcq' ? q.answer : 0); $('#mq-tfans').value = String(q && q.type === 'tf' ? q.answer : 0);
-  setSecs(q ? q.secs : 20); $('#mq-acc').value = q && q.type === 'short' ? (q.accepted || []).join('\n') : ''; $('#mq-essay').checked = q ? !!q.essay : preset === 'essay'; $('#mq-model').value = q && q.model ? q.model : ''; $('#mq-pts').value = q ? q.points : 100; $('#mq-cat').value = q ? q.category : ''; $('#mq-diff').value = q ? q.difficulty : 'medium';
+  setSecs(q ? q.secs : 20); $('#mq-acc').value = q && q.type === 'short' ? (q.accepted || []).join('\n') : ''; $('#mq-essay').checked = q ? !!q.essay : preset === 'essay'; $('#mq-run').checked = q ? !!q.run : preset === 'code'; $('#mq-model').value = q && q.model ? q.model : ''; $('#mq-pts').value = q ? q.points : 100; $('#mq-cat').value = q ? q.category : ''; $('#mq-diff').value = q ? q.difficulty : 'medium';
   syncType(); $('#m-q').hidden = false; $('#mq-q').focus();
 }
 $('#mq-cancel').addEventListener('click', () => { $('#m-q').hidden = true; });
@@ -602,14 +644,14 @@ $('#mq-form').addEventListener('submit', (e) => {
   const type = qType(), text = $('#mq-q').value.trim(); if (!text) return err('اكتبي نص السؤال.');
   let choices, answer;
   let accepted = [];
-  if (type === 'short') { accepted = $('#mq-acc').value.split('\n').map((x) => x.trim()).filter(Boolean); if (!accepted.length) return err('اكتبي الإجابة الصحيحة.'); choices = []; answer = 0; }
+  if (type === 'short') { accepted = $('#mq-run').checked && !$('#mq-essay').checked ? [$('#mq-acc').value.replace(/\r/g, '').trim()].filter(Boolean) : $('#mq-acc').value.split('\n').map((x) => x.trim()).filter(Boolean); if (!accepted.length) return err('اكتبي الإجابة الصحيحة.'); choices = []; answer = 0; }
   else if (type === 'tf') { choices = ['صح', 'غلط']; answer = Number($('#mq-tfans').value); }
   else {
     choices = [0, 1, 2, 3].map((i) => $('#mq-a' + i).value.trim()); answer = Number($('#mq-ans').value);
     if (choices.filter(Boolean).length < 2) return err('اكتبي إجابتين على الأقل.');
     if (!choices[answer]) return err('الإجابة الصحيحة لازم تكون مكتوبة.');
   }
-  const rec = { type, accepted, essay: type === 'short' && $('#mq-essay').checked, model: type === 'short' && $('#mq-essay').checked ? $('#mq-model').value.trim() : '', q: text, code: $('#mq-code').value.replace(/\s+$/, ''), choices, answer, secs: clamp(Number($('#mq-secs-sel').value === 'custom' ? $('#mq-secs').value : $('#mq-secs-sel').value) || 20, 5, 180), points: clamp(Number($('#mq-pts').value) || 100, 10, 1000), category: $('#mq-cat').value.trim(), difficulty: $('#mq-diff').value };
+  const rec = { type, accepted, essay: type === 'short' && $('#mq-essay').checked, run: type === 'short' && !$('#mq-essay').checked && $('#mq-run').checked, model: type === 'short' && $('#mq-essay').checked ? $('#mq-model').value.trim() : '', q: text, code: $('#mq-code').value.replace(/\s+$/, ''), choices, answer, secs: clamp(Number($('#mq-secs-sel').value === 'custom' ? $('#mq-secs').value : $('#mq-secs-sel').value) || 20, 5, 180), points: clamp(Number($('#mq-pts').value) || 100, 10, 1000), category: $('#mq-cat').value.trim(), difficulty: $('#mq-diff').value };
   if (cur) { if (editing) Object.assign(editing, rec); else cur.game.questions.push({ ...rec }); $('#m-q').hidden = true; saveCur(); renderExam(); return; }
   if (editing) Object.assign(editing, rec); else { const n = { id: uid(), at: Date.now(), ...rec }; bank.unshift(n); selected.add(n.id); }
   Bank.save(bank); $('#m-q').hidden = true; renderBank();
@@ -745,11 +787,11 @@ const b64u = {
 function compactGame(g) {
   const sh = sheetCfg.id && sheetCfg.key ? { u: sheetCfg.id, k: sheetCfg.key } : {};
   return { ...sh, t: g.title, s: [g.settings.shuffleQuestions ? 1 : 0, g.settings.shuffleChoices ? 1 : 0, g.settings.count || 0, g.settings.lang === 'en' ? 1 : 0],
-    q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') { o.x = q.accepted; if (q.essay) { o.e = 1; if (q.model) o.m = q.model; } } if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
+    q: g.questions.map((q) => { const o = { y: q.type === 'tf' ? 't' : q.type === 'short' ? 's' : 'm', q: q.q, a: q.answer, k: q.secs, p: q.points }; if (q.type === 'mcq') o.c = q.choices; if (q.type === 'short') { o.x = q.accepted; if (q.essay) { o.e = 1; if (q.model) o.m = q.model; } else if (q.run) o.r = 1; } if (q.code) o.d = q.code; if (q.category) o.g = q.category; if (q.difficulty && q.difficulty !== 'medium') o.f = q.difficulty; return o; }) };
 }
 function expandGame(c) {
   return { sheet: c.u && c.k ? { id: String(c.u), key: String(c.k) } : null, title: c.t, settings: { shuffleQuestions: !!c.s[0], shuffleChoices: !!c.s[1], count: c.s[2], lang: c.s[3] ? 'en' : 'ar' },
-    questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], essay: !!o.e, model: o.m || '', code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
+    questions: c.q.map((o) => ({ type: o.y === 't' ? 'tf' : o.y === 's' ? 'short' : 'mcq', q: o.q, answer: o.a, secs: o.k, points: o.p, choices: o.c || [], accepted: o.x || [], essay: !!o.e, run: !!o.r, model: o.m || '', code: o.d || '', category: o.g || '', difficulty: o.f || 'medium' })) };
 }
 async function pack(game) {
   const raw = new TextEncoder().encode(JSON.stringify(compactGame(game)));
@@ -900,7 +942,7 @@ function rowsToQuestions(rows) {
   return { qs, skipped };
 }
 function addToBank(list) {
-  if (cur) { list.forEach((q) => cur.game.questions.push({ type: q.type, accepted: q.accepted || [], essay: !!q.essay, model: q.model || '', q: q.q, code: q.code || '', choices: q.choices || [], answer: q.answer || 0, secs: q.secs || 20, points: q.points || 100, category: q.category || '', difficulty: q.difficulty || 'medium' })); saveCur(); renderExam(); return list.length; }
+  if (cur) { list.forEach((q) => cur.game.questions.push({ type: q.type, accepted: q.accepted || [], essay: !!q.essay, run: !!q.run, model: q.model || '', q: q.q, code: q.code || '', choices: q.choices || [], answer: q.answer || 0, secs: q.secs || 20, points: q.points || 100, category: q.category || '', difficulty: q.difficulty || 'medium' })); saveCur(); renderExam(); return list.length; }
   const add = list.map((q, i) => ({ id: uid(), at: Date.now() + i, ...q })); bank = bank.concat(add); add.forEach((q) => selected.add(q.id)); Bank.save(bank); persistSel(); return add.length;
 }
 function importFile(f) {
@@ -978,7 +1020,7 @@ $('#ai-go').addEventListener('click', async () => {
   const st = $('#ai-status'), f = $('#ai-file').files[0];
   if (!f) { st.textContent = 'اختاري ملف الأول.'; return; }
   const types = $$('.ai-t').filter((c) => c.checked).map((c) => c.value); if (!types.length) { st.textContent = 'اختاري نوع سؤال واحد على الأقل.'; return; }
-  const n = clamp(Number($('#ai-n').value) || 8, 1, 30), lang = $('#ai-lang').value;
+  const n = clamp(Number($('#ai-n').value) || 10, 5, 20), lang = $('#ai-lang').value;
   const levels = $$('.ai-d').filter((c) => c.checked).map((c) => c.value); if (!levels.length) { st.textContent = 'اختاري مستوى صعوبة واحد على الأقل.'; return; }
   let mat; try { mat = await fileToMaterial(f); } catch (e) {
     st.textContent = e.message === 'lib' ? 'ما قدرناش نحمّل أداة قراءة الملف. اتأكدي من النت وحاولي تاني.' : 'ما قدرناش نقرا الملف. جرّبي ملف تاني.'; return;
@@ -987,7 +1029,8 @@ $('#ai-go').addEventListener('click', async () => {
   if (!text.trim() && !mat.images.length) { st.textContent = 'الملف فاضي أو ما قدرناش نقرا نص منه.'; return; }
   const prompt = 'You are helping a teacher write quiz questions from the lesson material below' + (mat.images.length ? ' (the material is the attached image)' : '') + '.\n' +
     'Write exactly ' + n + ' questions in ' + (lang === 'en' ? 'English' : 'Arabic') + '. Allowed question types: ' + types.join(', ') + ' (mix them roughly evenly). Each question must be answerable from the material, with one clearly correct answer.\n' +
-    'Return ONLY a JSON array. Each item: {"type":"mcq|tf|short|essay","q":"question text","choices":["A","B","C","D"] (mcq only, 4 plausible options),"answer":0-3 index of the right choice for mcq, or 0 for True / 1 for False for tf,"accepted":["acceptable answer", ...] (short: the exact short answers a student could write; essay: 3-6 key words or phrases a good answer must mention),"model":"a short model answer (essay only)","difficulty":"easy|medium|hard"}.\n' +
+    (types.includes('code') ? 'A "code" question asks the student to write a SHORT Python 3 program (1-4 lines) that prints a result: use {"type":"code","q":"one clear sentence telling what to print","code":"a tiny starter such as a comment or a half-written line","accepted":["the exact text the correct program prints"]}. The expected output must be deterministic, use only print(), no input(), no imports, no randomness; keep it very simple for kids.\n' : '') +
+    'Return ONLY a JSON array. Each item: {"type":"mcq|tf|short|essay|code","q":"question text","choices":["A","B","C","D"] (mcq only, 4 plausible options),"answer":0-3 index of the right choice for mcq, or 0 for True / 1 for False for tf,"accepted":["acceptable answer", ...] (short: the exact short answers a student could write; essay: 3-6 key words or phrases a good answer must mention),"model":"a short model answer (essay only)","difficulty":"easy|medium|hard"}.\n' +
     'Difficulty levels to use: ' + levels.join(', ') + '. Spread the questions roughly evenly across these levels and set "difficulty" for each one. easy = a direct fact that is stated plainly in the material, short and obvious, which any student who paid attention would know; medium = needs a little understanding or connecting two ideas; hard = needs reasoning or applying the idea to a new example. Keep every question short and clear, written for school kids.\n' +
     'For "short" questions make them fill-in-the-blank style with a very short answer (one or two words).' + ($('#ai-extra').value.trim() ? '\nTeacher instructions: ' + $('#ai-extra').value.trim() : '') + (text ? '\n\nMATERIAL:\n' + text : '');
   aiCtl = new AbortController(); st.textContent = 'Claude بيقرا الملف ويكتب الأسئلة… ممكن ياخد لحد دقيقة.'; $('#ai-go').disabled = true; $('#ai-stop').hidden = false;
@@ -996,9 +1039,9 @@ $('#ai-go').addEventListener('click', async () => {
     const opts = { signal: aiCtl.signal, cache: false }; if (mat.images.length) { if (!lim.images) throw { code: 'images_unavailable' }; opts.images = mat.images; }
     const arr = await sampleFn.json(prompt, opts);
     const list = Array.isArray(arr) ? arr : (arr && Array.isArray(arr.questions) ? arr.questions : []);
-    const clean = LOCAL.sanitize({ settings: { lang }, questions: list.map((x) => ({ ...x, type: x.type === 'essay' ? 'short' : x.type, essay: x.type === 'essay', accepted: x.accepted || [], secs: x.type === 'essay' ? 60 : x.type === 'short' ? 30 : x.difficulty === 'hard' ? 30 : 20, points: x.type === 'essay' ? 200 : x.difficulty === 'hard' ? 200 : x.difficulty === 'medium' ? 150 : 100, category: 'AI' })) }).questions;
+    const clean = LOCAL.sanitize({ settings: { lang }, questions: list.map((x) => ({ ...x, type: x.type === 'essay' || x.type === 'code' ? 'short' : x.type, essay: x.type === 'essay', run: x.type === 'code', code: x.type === 'code' ? String(x.code || '') : '', accepted: x.accepted || [], secs: x.type === 'essay' || x.type === 'code' ? 60 : x.type === 'short' ? 30 : x.difficulty === 'hard' ? 30 : 20, points: x.type === 'essay' || x.type === 'code' ? 200 : x.difficulty === 'hard' ? 200 : x.difficulty === 'medium' ? 150 : 100, category: 'AI' })) }).questions;
     if (!clean.length) throw { code: 'empty' };
-    const added = addToBank(clean.map((q) => ({ type: q.type, accepted: q.accepted, essay: q.essay, model: q.model, q: q.q, code: '', choices: q.choices, answer: q.answer, secs: q.secs, points: q.points, category: 'AI', difficulty: q.difficulty })));
+    const added = addToBank(clean.map((q) => ({ type: q.type, accepted: q.accepted, essay: q.essay, model: q.model, run: q.run, q: q.q, code: q.code || '', choices: q.choices, answer: q.answer, secs: q.secs, points: q.points, category: 'AI', difficulty: q.difficulty })));
     renderBank(); renderPick(); st.textContent = 'اتضافت ' + added + ' سؤال للاختبار. راجعيهم تحت وعدّلي اللي يحتاج.';
   } catch (e) {
     const c = e && e.code; st.textContent = c === 'cancelled' ? 'اتوقف.' : c === 'not_granted' ? 'لازم توافقي على استخدام Claude علشان الميزة دي تشتغل.' : c === 'rate_limited' ? 'استني شوية وحاولي تاني.' : c === 'images_unavailable' ? 'رفع الصور مش متاح دلوقتي. جرّبي ملف نص أو Word.' : 'ما قدرناش نولّد أسئلة من الملف. جرّبي ملف تاني أو قلّلي العدد.';
