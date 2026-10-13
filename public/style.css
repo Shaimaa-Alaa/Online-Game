@@ -235,6 +235,14 @@ tr.me td{background:rgba(59,130,246,.2)}
   .choice{padding:6px 10px} .choice .key{width:2.1rem;height:2.1rem;font-size:1rem}
   .qtext{font-size:1.05rem}
   .qi{grid-template-columns:auto 1fr}.qi .acts{grid-column:1/-1}
+  /* phones: keep the track and the car in view, and the join form on one screen */
+  .hud-board{display:none}
+  .qbox{padding:8px 10px 10px} .qmeta{font-size:.8rem} .qchips{font-size:.75rem}
+  #v-join .stage-pv{height:22vh;min-height:140px}
+  #v-join .join h2{font-size:1.2rem!important}
+  #v-join .wrap{padding-block:10px;gap:8px}
+  #v-join .home{margin-top:6px!important;gap:12px}
+  .btn-lg{min-height:52px;font-size:1.15rem}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
 
