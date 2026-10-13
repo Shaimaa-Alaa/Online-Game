@@ -515,7 +515,7 @@ $('#tl-form').addEventListener('submit', (e) => {
   whenOpen(() => send({ t: 'tauth', pass: S.pass }));
 });
 function openDash() {
-  S.role = 'teacher'; show('tdash'); setDashTab(S.tab || 'exams'); $('#td-resume').hidden = !(S.teacher && S.teacher.code);
+  S.role = 'teacher'; show('tdash'); setDashTab(S.tab || (LOCAL && sheetCfg.id && sheetCfg.token ? 'res' : 'exams')); $('#td-resume').hidden = !(S.teacher && S.teacher.code);
 }
 $('#td-out').addEventListener('click', goHome);
 $('#td-resume').addEventListener('click', () => { show('tlive'); });
@@ -1079,6 +1079,18 @@ $('#r-exam').addEventListener('change', paintResults);
     if (!id || !token || !key) { $('#rc-status').textContent = 'اكتبي الرابط والـ TOKEN والـ KEY.'; return; }
     sheetCfg = { id, token, key }; SheetCfg.save(sheetCfg); $('#rc-status').textContent = 'بنختبر الربط…'; loadResults();
   });
+  $('#rc-link').addEventListener('click', () => {
+    if (!sheetCfg.id || !sheetCfg.token) { $('#rc-status').textContent = 'اربطي الجدول الأول.'; return; }
+    const base = location.href.split('#')[0]; const link = base + '#T' + b64u.enc(new TextEncoder().encode(JSON.stringify({ i: sheetCfg.id, t: sheetCfg.token, k: sheetCfg.key })));
+    $('#rc-status').textContent = 'اللينك ده سري (فيه مفتاحك). احفظيه عندك وما تبعتيهوش للطلاب: ' + link;
+    try { navigator.clipboard.writeText(link).then(() => { $('#rc-status').textContent = 'اتنسخ ✓ احفظيه في المفضلة. ده لينك المعلمة، سري وما تبعتيهوش للطلاب.'; }).catch(() => {}); } catch (e) { /* ignore */ }
+  });
+  /* teacher link: #T… brings the sheet connection to any browser */
+  const fromT = () => { const t = (location.hash || '').replace(/^#/, ''); if (t[0] !== 'T' || t.length < 20) return; try { const o = JSON.parse(new TextDecoder().decode(b64u.dec(t.slice(1)))); if (o.i && o.t) { sheetCfg = { id: o.i, token: o.t, key: o.k || '' }; SheetCfg.save(sheetCfg); fill(); history.replaceState(null, '', location.href.split('#')[0]); alert2('اتربطت لوحة المعلمة بالجدول. ادخلي «لوحة المعلم» بكلمة السر.'); } } catch (e) { /* ignore */ } };
+  fromT();
+  /* keep the panel live: refresh every 15 s while the Results tab is open, and when the tab comes back into view */
+  const live = () => { if (S.role === 'teacher' && S.tab === 'res' && !document.hidden && sheetCfg.id && sheetCfg.token) loadResults(); };
+  setInterval(live, 15000); document.addEventListener('visibilitychange', live);
   $('#rc-off').addEventListener('click', () => { sheetCfg = {}; SheetCfg.save(sheetCfg); fill(); $('#rc-status').textContent = 'اتفصل الربط. الروابط الجديدة مش هتبعت للجدول.'; });
 })();
 $('#r-add').addEventListener('click', () => {
