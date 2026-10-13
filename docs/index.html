@@ -4116,35 +4116,24 @@ function sfx(kind) {
     });
   } catch (e) { /* ignore */ }
 }
-/* race-car engine: a low rumbling "four-stroke" body (soft saw + sub sine through a low-pass, pulsed by a firing-rate LFO) plus a little filtered air noise.
-   Pitch and brightness follow the car's speed; it stays quiet and warm instead of buzzy. */
 function engineSet(v, accel) {
   if (muted) { if (eng) eng.g.gain.value = 0; return; }
   try {
     if (!eng) {
-      const a = audioCtx(), o1 = a.createOscillator(), o2 = a.createOscillator(), o3 = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
-      const pulse = a.createGain(), lfo = a.createOscillator(), lg = a.createGain();
-      o1.type = 'sawtooth'; o2.type = 'sine'; o3.type = 'triangle'; f.type = 'lowpass'; f.Q.value = 0.9; g.gain.value = 0; pulse.gain.value = 0.82;
-      lfo.type = 'sine'; lg.gain.value = 0.16; lfo.connect(lg); lg.connect(pulse.gain);       /* cylinder "pulse" */
-      const len = a.sampleRate * 2, nb = a.createBuffer(1, len, a.sampleRate), d = nb.getChannelData(0); let last = 0;
-      for (let i = 0; i < len; i++) { last = (last + 0.02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.2; }   /* brown noise: rumble, not hiss */
-      const ns = a.createBufferSource(), nf = a.createBiquadFilter(), ng = a.createGain(); ns.buffer = nb; ns.loop = true; nf.type = 'lowpass'; nf.frequency.value = 420; ng.gain.value = 0.5;
-      ns.connect(nf); nf.connect(ng); ng.connect(pulse);
-      o1.connect(f); o2.connect(f); o3.connect(f); f.connect(pulse); pulse.connect(g); g.connect(a.destination);
-      o1.start(); o2.start(); o3.start(); lfo.start(); ns.start();
-      eng = { o1, o2, o3, f, g, lfo, ns };
+      const a = audioCtx(), o1 = a.createOscillator(), o2 = a.createOscillator(), f = a.createBiquadFilter(), g = a.createGain();
+      o1.type = 'sawtooth'; o2.type = 'square'; f.type = 'lowpass'; f.Q.value = 2; g.gain.value = 0;
+      o1.connect(f); o2.connect(f); f.connect(g); g.connect(a.destination); o1.start(); o2.start();
+      eng = { o1, o2, f, g };
     }
-    const t = ac.currentTime, sp = clamp(v, 0, 1), gear = Math.floor(sp * 4.999), inGear = sp * 5 - gear;          /* five "gears": the pitch climbs, drops a little, climbs again */
-    const rpm = 62 + (gear * 0.12 + inGear * 0.88) * 78 + (accel ? 10 : 0);
-    eng.o1.frequency.setTargetAtTime(rpm, t, 0.07); eng.o2.frequency.setTargetAtTime(rpm * 0.5, t, 0.07); eng.o3.frequency.setTargetAtTime(rpm * 1.5, t, 0.07);
-    eng.lfo.frequency.setTargetAtTime(rpm * 0.25, t, 0.07);
-    eng.f.frequency.setTargetAtTime(240 + sp * 760 + (accel ? 120 : 0), t, 0.1);
-    eng.g.gain.setTargetAtTime(0.035 + sp * 0.05 + (accel ? 0.015 : 0), t, 0.1);
+    const t = ac.currentTime, rpm = 48 + v * 150 + (accel ? 14 : 0);
+    eng.o1.frequency.setTargetAtTime(rpm, t, 0.06); eng.o2.frequency.setTargetAtTime(rpm * 0.5, t, 0.06);
+    eng.f.frequency.setTargetAtTime(380 + v * 1500, t, 0.08);
+    eng.g.gain.setTargetAtTime(0.012 + v * 0.03 + (accel ? 0.012 : 0), t, 0.08);
   } catch (e) { /* ignore */ }
 }
 function engineStop() {
   if (!eng) return; const e = eng; eng = null;
-  try { e.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.o3.stop(); e.lfo.stop(); e.ns.stop(); } catch (x) { /* ignore */ } }, 400); } catch (x) { /* ignore */ }
+  try { e.g.gain.setTargetAtTime(0, ac.currentTime, 0.05); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); } catch (x) { /* ignore */ } }, 400); } catch (x) { /* ignore */ }
 }
 function paintMute() {
   $('#s2-on').style.display = muted ? 'none' : ''; $('#s2-off').style.display = muted ? '' : 'none';
