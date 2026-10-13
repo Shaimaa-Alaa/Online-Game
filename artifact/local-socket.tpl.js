@@ -70,7 +70,8 @@
       if (detailed) { r.accuracy = acc; r.level = levelOf(acc); r.fastest = p.fastest; r.avgTime = p.times.length ? Math.round(p.times.reduce(function (x, y) { return x + y; }, 0) / p.times.length) : null; }
       r._t = p.times.reduce(function (x, y) { return x + y; }, 0); return r;
     });
-    rows.sort(function (a, b) { return b.correct - a.correct || b.score - a.score || a._t - b._t || a.name.localeCompare(b.name); });
+    var pid = room.p.id;
+    rows.sort(function (a, b) { return b.correct - a.correct || b.score - a.score || (b.id === pid) - (a.id === pid) || a._t - b._t || a.name.localeCompare(b.name); });
     rows.forEach(function (r, i) { r.rank = i + 1; delete r._t; });
     return rows;
   };
@@ -86,6 +87,13 @@
       var frac = timeout ? 1 : clamp(b.speed + (Math.random() + Math.random() + Math.random() - 1.5) * 0.18, 0.08, 0.97), ms = Math.round(frac * secs * 1000);
       if (ok) { b.correct++; b.score += Math.round(q.points * (0.5 + 0.5 * clamp(1 - frac, 0, 1))); if (b.fastest == null || ms < b.fastest) b.fastest = ms; } else b.wrong++;
       b.times.push(ms);
+    });
+    /* podium guarantee: only the two strongest rivals may stay ahead of the player; the rest are held back to the player's level */
+    var lead = room.bots.slice().sort(function (x, y) { return y.acc - x.acc; }).slice(0, 2);
+    room.bots.forEach(function (b) {
+      if (lead.indexOf(b) >= 0) return;
+      if (b.correct > p.correct) { b.wrong += b.correct - p.correct; b.correct = p.correct; b.score = Math.min(b.score, Math.max(0, p.score - 1)); }
+      else if (b.correct === p.correct && b.score >= p.score) b.score = Math.max(0, p.score - 1);
     });
     var last = room.round + 1 >= room.qs.length;
     me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
