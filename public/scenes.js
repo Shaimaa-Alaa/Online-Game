@@ -121,31 +121,53 @@
     return st;
   }
 
-  /* ---------- winners podium with the real cars + falling confetti ---------- */
+  /* ---------- winners podium: daylight track scene with the real cars + falling confetti ---------- */
+  function skyTexture() {
+    var cv = document.createElement('canvas'); cv.width = 8; cv.height = 256; var g = cv.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 256);
+    gr.addColorStop(0, '#4f96dc'); gr.addColorStop(0.45, '#8cc6f0'); gr.addColorStop(0.8, '#d4eaf6'); gr.addColorStop(1, '#fbe6c4'); g.fillStyle = gr; g.fillRect(0, 0, 8, 256);
+    var t = new THREE.CanvasTexture(cv); return t;
+  }
+  function numTexture(n, col) {
+    var cv = document.createElement('canvas'); cv.width = 128; cv.height = 128; var g = cv.getContext('2d');
+    g.fillStyle = col; g.globalAlpha = 0.55; g.font = '900 120px Cairo, Arial, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n), 64, 70);
+    return new THREE.CanvasTexture(cv);
+  }
+  function tree(x, z, sc) {
+    var g = new THREE.Group();
+    var tr = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.35, 1.4, 6), new THREE.MeshLambertMaterial({ color: 0x7a4a2a })); tr.position.y = 0.7; g.add(tr);
+    for (var i = 0; i < 3; i++) { var c = new THREE.Mesh(new THREE.ConeGeometry(2.0 - i * 0.45, 2.2, 7), new THREE.MeshLambertMaterial({ color: i % 2 ? 0x2f9e4f : 0x3bb35d, flatShading: true })); c.position.y = 2.2 + i * 1.3; g.add(c); }
+    g.position.set(x, 0, z); g.scale.setScalar(sc); return g;
+  }
   function podium(el, R3, COLORS, top, myId) {
     var renderer = makeRenderer(el); if (!renderer) return null;
-    var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(38, 1, 0.5, 200); lights(scene, true);
-    scene.fog = new THREE.Fog(0x0a1230, 30, 90);
-    var floor = new THREE.Mesh(new THREE.CircleGeometry(30, 48), new THREE.MeshLambertMaterial({ color: 0x151d42 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -0.01; scene.add(floor);
+    renderer.setClearColor(0x8cc6f0, 1);
+    var scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(38, 1, 0.5, 400); lights(scene, true);
+    scene.background = skyTexture(); scene.fog = new THREE.Fog(0xbfe0f2, 70, 190);
+    var grass = new THREE.Mesh(new THREE.CircleGeometry(220, 48), new THREE.MeshLambertMaterial({ color: 0x3f9a35 })); grass.rotation.x = -Math.PI / 2; grass.position.y = -0.03; scene.add(grass);
+    var plaza = new THREE.Mesh(new THREE.CircleGeometry(13, 48), new THREE.MeshLambertMaterial({ color: 0x727a85 })); plaza.rotation.x = -Math.PI / 2; plaza.position.y = -0.01; scene.add(plaza);
+    var rim = new THREE.Mesh(new THREE.RingGeometry(13, 13.7, 48), new THREE.MeshLambertMaterial({ color: 0xc9d0d8 })); rim.rotation.x = -Math.PI / 2; rim.position.y = 0; scene.add(rim);
+    var road = new THREE.Mesh(new THREE.RingGeometry(40, 50, 64), new THREE.MeshLambertMaterial({ color: 0x3a3f4b })); road.rotation.x = -Math.PI / 2; road.position.y = 0.0; scene.add(road);
+    var cm = [new THREE.MeshLambertMaterial({ color: 0xe63946 }), new THREE.MeshLambertMaterial({ color: 0xffffff })];
+    for (var ci = 0; ci < 72; ci++) { var an = ci / 72 * Math.PI * 2, cb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.25, 0.9), cm[ci % 2]); cb.position.set(Math.cos(an) * 39.6, 0.12, Math.sin(an) * 39.6); cb.rotation.y = -an + Math.PI / 2; scene.add(cb); }
+    for (var ti = 0; ti < 34; ti++) { var ta = ti / 34 * Math.PI * 2 + (ti % 3) * 0.05, tr = 18 + (ti * 7 % 17); if (tr > 31 && tr < 52) tr += 22; scene.add(tree(Math.cos(ta) * tr, -Math.abs(Math.sin(ta)) * tr - 7, 0.9 + (ti % 4) * 0.18)); }
     var spots = [0xffd23f, 0x7aa7ff, 0xff7aa8];
-    var heights = { 1: 3.2, 2: 2.2, 3: 1.5 }, xs = { 1: 0, 2: -5.4, 3: 5.4 }, cols = { 1: 0xf5c518, 2: 0xc7ced9, 3: 0xcd7f32 };
+    var heights = { 1: 3.2, 2: 2.2, 3: 1.5 }, xs = { 1: 0, 2: -5.4, 3: 5.4 }, cols = { 1: 0xf2b705, 2: 0xaeb7c4, 3: 0xc67a3c };
     var items = [];
     top.slice(0, 3).forEach(function (p, i) {
       var rk = i + 1, h = heights[rk];
-      var base = new THREE.Mesh(new THREE.BoxGeometry(4.4, h, 5.6), new THREE.MeshStandardMaterial({ color: cols[rk], metalness: 0.6, roughness: 0.35 })); base.position.set(xs[rk], h / 2, 0); scene.add(base);
+      var base = new THREE.Mesh(new THREE.BoxGeometry(4.4, h, 5.6), new THREE.MeshLambertMaterial({ color: cols[rk] })); base.position.set(xs[rk], h / 2, 0); scene.add(base);
+      var numP = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ map: numTexture(rk, '#1b2347'), transparent: true })); numP.position.set(xs[rk], h * 0.5, 2.82); scene.add(numP);
       var mc = R3.makeCar(COLORS[p.color] || COLORS.red, '★', false, true); mc.group.scale.setScalar(0.85); mc.group.position.set(xs[rk], h, 0); mc.group.rotation.y = Math.PI + (rk === 1 ? 0.0 : rk === 2 ? 0.35 : -0.35); scene.add(mc.group);
-      var lab = labelSprite(p.name, p.id === myId ? '#16a34a' : '#2563eb'); lab.position.set(xs[rk], h + 3.6, 0); lab.scale.set(5.2, 1.3, 1); scene.add(lab);
-      var num = labelSprite(String(rk), '#' + cols[rk].toString(16).padStart(6, '0')); num.scale.set(1.6, 0.4, 1); num.userData.draw(['1ST', '2ND', '3RD'][i], '#' + cols[rk].toString(16).padStart(6, '0'), false); num.position.set(xs[rk], h * 0.55, 3.0); num.scale.set(3.6, 0.9, 1); scene.add(num);
+      var lab = labelSprite(p.name, p.id === myId ? '#ef4146' : '#2563eb'); lab.position.set(xs[rk], h + 3.6, 0); lab.scale.set(5.2, 1.3, 1); scene.add(lab);
       items.push({ g: mc.group, base: h, rk: rk, born: 0.35 * (4 - rk), ph: i });
-      var sp = new THREE.PointLight(spots[i], 0.9, 18); sp.position.set(xs[rk], h + 6, 4); scene.add(sp);
     });
-    var N = 260, geo = new THREE.BufferGeometry(), pos = new Float32Array(N * 3), colr = new Float32Array(N * 3), vel = [];
+    var N = 220, geo = new THREE.BufferGeometry(), pos = new Float32Array(N * 3), colr = new Float32Array(N * 3), vel = [];
     var pal = [0xffd23f, 0xff5a5f, 0x4ade80, 0x60a5fa, 0xc084fc, 0xffffff];
     for (var k = 0; k < N; k++) { pos[k * 3] = (Math.random() - .5) * 26; pos[k * 3 + 1] = 6 + Math.random() * 16; pos[k * 3 + 2] = (Math.random() - .5) * 14; var c = new THREE.Color(pal[k % pal.length]); colr[k * 3] = c.r; colr[k * 3 + 1] = c.g; colr[k * 3 + 2] = c.b; vel.push([(Math.random() - .5) * 1.2, -(2 + Math.random() * 3), (Math.random() - .5) * 1.2, Math.random() * 6]); }
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(colr, 3));
     var conf = new THREE.Points(geo, new THREE.PointsMaterial({ size: 0.42, vertexColors: true, transparent: true, opacity: 0.95 })); scene.add(conf);
     var st = { dead: false, raf: 0, t: 0 };
-    function fit() { var w = el.clientWidth || 300, h = el.clientHeight || 240; renderer.setSize(w, h, false); cam.aspect = w / h; cam.fov = cam.aspect < 1 ? 62 : 40; cam.updateProjectionMatrix(); }
+    function fit() { var w = el.clientWidth || 300, h = el.clientHeight || 240; renderer.setSize(w, h, false); cam.aspect = w / h; cam.fov = cam.aspect < 1 ? 64 : 40; cam.setViewOffset(w, h, 0, Math.round(h * 0.17), w, h); cam.updateProjectionMatrix(); }
     st.ro = ro(el, fit); var last = 0;
     function loop(now) {
       if (st.dead) return; st.raf = requestAnimationFrame(loop);
@@ -158,7 +180,7 @@
       var p = geo.attributes.position.array;
       for (var q = 0; q < N; q++) { p[q * 3] += Math.sin(st.t * 2 + vel[q][3]) * dt * 1.2 + vel[q][0] * dt; p[q * 3 + 1] += vel[q][1] * dt; p[q * 3 + 2] += vel[q][2] * dt; if (p[q * 3 + 1] < 0) { p[q * 3 + 1] = 16 + Math.random() * 4; p[q * 3] = (Math.random() - .5) * 26; } }
       geo.attributes.position.needsUpdate = true;
-      cam.position.set(Math.sin(st.t * 0.35) * 5, 5.5, 17); cam.lookAt(0, 2.8, 0);
+      cam.position.set(Math.sin(st.t * 0.35) * 4, 6.2, cam.aspect < 1 ? 22 : 25); cam.lookAt(0, 2.0, 0);
       renderer.render(scene, cam);
     }
     st.raf = requestAnimationFrame(loop);

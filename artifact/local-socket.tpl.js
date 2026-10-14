@@ -27,7 +27,7 @@
     if (m.t === 'rejoin') return me.emit({ t: 'error', code: 'gone', msg: 'gone' });
     if (m.t === 'tauth') return me.emit({ t: 'tauth', ok: m.pass === TEACHER_PASS, needpass: true });
     if (m.t === 'solo') {
-      if (me.room) return;
+      if (me.room) { if (me.room.state !== 'finished') return; clearTimeout(me.room.timer); me.room = null; }
       var name = cleanName(m.name); if (!name) return me.emit({ t: 'error', code: 'name', msg: 'Please enter your name.' });
       var color = COLORS.indexOf(m.color) >= 0 ? m.color : COLORS[0];
       var p = { id: 'p' + rid(3), token: rid(12), name: name, color: color, score: 0, correct: 0, wrong: 0, times: [], fastest: null };

@@ -306,7 +306,7 @@ function endRace() {
   Race.ready = false; Race.pending = null; Race.q = null; $('#qbox').hidden = true;
 }
 on('countdown', (m) => {
-  if (S.role === 'student') S.missed = [];
+  if (S.role === 'student') { S.missed = []; S.streak = 0; S.best = 0; }
   try { if (S.role === 'student' && window.__LOCAL && window.__LOCAL.getGame().questions.some((q) => q.run)) PyRun.start(); } catch (e) { /* ignore */ }
   if (S.role !== 'student' || !S.student) return;
   Race.lang = m.lang === 'en' ? 'en' : 'ar';
@@ -316,7 +316,7 @@ on('countdown', (m) => {
   const list = (S.lobby ? S.lobby.players : []).map((p) => ({ id: p.id, name: p.name, color: COLORS[p.color] || COLORS.red, score: 0 }));
   Race.players = list; Race.total = m.total; Race.ready = false; Race.pending = null; Race.answered = -1;
   const R = { cfg: { title: (S.lobby && S.lobby.title) || 'سباق المعرفة' }, players: list, myId: S.student.pid, total: m.total };
-  const goIn = m.startAt - nowS();
+  const goIn = m.startAt - nowS(); Race.t0 = Date.now() + Math.max(0, goIn);
   let view = null; try { view = R3 ? R3.create($('#stage'), R, { onFrame: engineSet }) : null; } catch (e) { view = null; if (window.console) console.error('race3d create failed', e); }
   if (view) {
     Race.view = view; window.__rv = view;
@@ -474,6 +474,7 @@ on('reveal', (m) => {
     if (S.view !== 'race') return;
     const me = m.per[S.student.pid] || { ok: false, pts: 0, choice: -1 };
     const handled = Race.myAck && Race.myAck.n === m.n;
+    if (me.ok) { S.streak = (S.streak || 0) + 1; S.best = Math.max(S.best || 0, S.streak); } else S.streak = 0;
     if (!me.ok && Race.q && Race.q.q) { (S.missed = S.missed || []).push(String(Race.q.q).replace(/\s+/g, ' ').slice(0, 80)); }
     $$('#choices .choice').forEach((b, k) => { b.disabled = true; b.classList.remove('picked', 'wrong', 'correct'); if (k === m.correct) b.classList.add('correct'); else if (k === me.choice) b.classList.add('wrong'); });
     const fb = $('#fb');
@@ -493,14 +494,34 @@ on('results', (m) => {
 $('#fs').addEventListener('click', () => { try { const el = $('#v-race'), p = document.fullscreenElement ? document.exitFullscreen() : el.requestFullscreen(); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } });
 
 function levelAr(l) { return l.ar + ' · ' + l.en; }
+function paintPodiumCard(m, me, localMode) {
+  const en = Race.lang === 'en', rank = localMode ? 1 : (me.rank || 1);
+  const ORD_AR = ['الأول', 'الثاني', 'الثالث', 'الرابع', 'الخامس', 'السادس', 'السابع', 'الثامن', 'التاسع'], ORD_EN = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th'];
+  $('#pc-title').textContent = (rank <= 3 ? ['🥇', '🥈', '🥉'][rank - 1] : '🏁') + ' ' + (en ? (ORD_EN[rank - 1] || rank + 'th') + ' place' : 'المركز ' + (ORD_AR[rank - 1] || rank));
+  const acc = me.accuracy || 0, n = acc >= 80 ? 3 : acc >= 50 ? 2 : acc > 0 ? 1 : 0, stars = $('#pc-stars'); stars.replaceChildren();
+  for (let i = 0; i < 3; i++) stars.append(h('i', { class: i < n ? '' : 'off', text: '★' }));
+  $('#pc-correct').textContent = me.correct + '/' + m.total; $('#pc-correct-l').textContent = en ? 'Correct answers' : 'إجابات صحيحة';
+  $('#pc-score').textContent = Number(me.score).toLocaleString('en'); $('#pc-score-l').textContent = en ? 'Points' : 'النقاط';
+  const secs = Race.t0 ? Math.max(1, Math.round((Date.now() - Race.t0) / 1000)) : Math.round((me.avgTime || 0) * m.total / 1000), mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, '0');
+  $('#pc-line').textContent = en ? 'Race time ' + mm + ':' + ss + ' · Longest streak ' + (S.best || 0) : 'زمن السباق ' + mm + ':' + ss + ' · أطول سلسلة إجابات صحيحة ' + (S.best || 0);
+  $('#pc-again').textContent = en ? 'Play again' : 'العب مرة أخرى';
+}
+function playAgain() {
+  const name = (S.student && S.student.name) || store.get('sbq-name') || '', color = (S.student && S.student.color) || S.color;
+  if (!name || !window.__LOCAL) { goHome(); return; }
+  endRace(); S.role = 'student'; S.student = null; S.missed = [];
+  whenOpen(() => send({ t: 'solo', name, color }));
+}
+$('#pc-again').addEventListener('click', playAgain);
 function studentResults(m) {
   show('sresult'); sfx('finish');
   const me = m.board.find((r) => r.id === S.student.pid) || m.board[0];
   const localMode = !!(m.solo && m.solo.local && !m.solo.rivals);
   if (localMode) { me.rank = 1; me.of = 0; m.board = [{ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: 1 }]; }
   else if (m.solo && !m.solo.rivals) { me.rank = m.solo.rank || 0; me.of = m.solo.of; m.board = m.solo.top.map((t, i) => ({ id: 'top' + i, name: t.name, score: t.score, correct: t.correct, color: (t.name === me.name && t.score === me.score) ? me.color : (i === 0 ? 'yellow' : i === 1 ? 'white' : 'orange'), rank: t.rank })); if (m.solo.rank && m.solo.rank > 5) m.board.push({ id: me.id, name: me.name, score: me.score, correct: me.correct, color: me.color, rank: m.solo.rank }); }
-  $('#sr-winner').hidden = false; $('#sr-winner').textContent = me.rank === 1 && !localMode ? 'WINNER!' : 'RACE COMPLETE'; $('#sr-winner').classList.toggle('lose', me.rank !== 1 || localMode);
-  const g3 = $('#sr-3d'); g3.hidden = false; const got3d = Preview.mountPodium(g3, m.board.slice(0, 3), me.id); g3.hidden = !got3d;
+  $('#sr-winner').hidden = true;
+  const g3 = $('#sr-3d'); g3.hidden = false; const got3d = Preview.mountPodium(g3, m.board.slice(0, 3), me.id); g3.hidden = !got3d; $('#sr-stage').classList.toggle('no3d', !got3d);
+  paintPodiumCard(m, me, localMode);
   const pod = $('#sr-podium'); pod.replaceChildren(); pod.hidden = got3d;
   [1, 0, 2].forEach((i) => {
     const r = m.board[i]; if (!r) return;

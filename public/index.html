@@ -86,8 +86,16 @@
 <section class="view" id="v-sresult" hidden>
   <div class="wrap narrow" style="max-width:760px">
     <div class="winner" id="sr-winner" hidden>WINNER!</div>
-    <h2 style="font-weight:900;font-size:2rem;text-align:center">RACE RESULTS · نتيجة السباق</h2>
-    <div class="stage-pv podium-pv" id="sr-3d" hidden></div>
+    <div class="podium-stage" id="sr-stage">
+      <div class="stage-pv podium-pv" id="sr-3d"></div>
+      <div class="pcard" id="pcard">
+        <div class="pstars" id="pc-stars" aria-hidden="true"></div>
+        <h2 class="ptitle" id="pc-title"></h2>
+        <div class="pboxes"><div class="pbox"><b id="pc-correct"></b><span id="pc-correct-l"></span></div><div class="pbox"><b id="pc-score"></b><span id="pc-score-l"></span></div></div>
+        <p class="pline" id="pc-line"></p>
+        <button class="btn btn-go btn-lg pagain" id="pc-again" type="button"></button>
+      </div>
+    </div>
     <div class="podium" id="sr-podium"></div>
     <div class="card"><h3 style="font-weight:900">نتيجتك</h3><div class="stats" id="sr-stats"></div><p id="sr-msg" class="hint" style="margin-top:12px;font-size:1.05rem"></p></div>
     <div class="card" id="sr-send" style="margin-top:14px" hidden><h3 style="font-weight:900" id="sr-send-t"></h3><p class="hint" id="sr-send-p" style="margin:6px 0 10px"></p><textarea id="sr-code" rows="3" readonly dir="ltr" style="width:100%"></textarea>
