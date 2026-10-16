@@ -302,7 +302,7 @@ const TX = (ar, en) => (Race.lang === 'en' ? en : ar);
 function endRace() {
   engineStop(); clearInterval(Race.tick);
   if (Race.view) { try { Race.view.dispose(); } catch (e) { /* ignore */ } Race.view = null; }
-  $$('.gl,.hud,.tags,.cd,.sl,.flash,.toast3d,.flatbars', $('#stage')).forEach((n) => n.remove());
+  $$('.gl,.hud,.tags,.cd,.sl,.flash,.toast3d,.flatbars,.finish3d', $('#stage')).forEach((n) => n.remove());
   Race.ready = false; Race.pending = null; Race.q = null; $('#qbox').hidden = true;
 }
 on('countdown', (m) => {
@@ -315,7 +315,7 @@ on('countdown', (m) => {
   Preview.unmount(); show('race'); $('#bar-title').textContent = (S.lobby && S.lobby.title) || 'سباق المعرفة';
   const list = (S.lobby ? S.lobby.players : []).map((p) => ({ id: p.id, name: p.name, color: COLORS[p.color] || COLORS.red, score: 0 }));
   Race.players = list; Race.total = m.total; Race.ready = false; Race.pending = null; Race.answered = -1;
-  const R = { cfg: { title: (S.lobby && S.lobby.title) || 'سباق المعرفة' }, players: list, myId: S.student.pid, total: m.total };
+  const R = { lang: Race.lang, cfg: { title: (S.lobby && S.lobby.title) || 'سباق المعرفة' }, players: list, myId: S.student.pid, total: m.total };
   const goIn = m.startAt - nowS(); Race.t0 = Date.now() + Math.max(0, goIn);
   let view = null; try { view = R3 ? R3.create($('#stage'), R, { onFrame: engineSet }) : null; } catch (e) { view = null; if (window.console) console.error('race3d create failed', e); }
   if (view) {

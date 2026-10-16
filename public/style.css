@@ -307,3 +307,22 @@ tr.me td{background:rgba(59,130,246,.2)}
 .podium-stage.no3d{background:radial-gradient(circle at 50% 100%,#3a2b86,#0a1230 70%);padding:48px 0 14px}
 .podium-stage.no3d .pcard{position:relative;left:auto;bottom:auto;transform:none;margin:0 auto}
 @media (max-width:560px){ .podium-stage .podium-pv{height:clamp(430px,74vh,640px)} .pcard{padding:28px 14px 14px} .pstars i{font-size:36px} }
+
+/* finish-line celebration over the race */
+.finish3d{position:absolute;inset:0;z-index:40;pointer-events:none;overflow:hidden}
+.finish3d .ff{position:absolute;top:8%;width:clamp(90px,20vw,190px);filter:drop-shadow(0 4px 6px rgba(0,0,0,.35))}
+.finish3d .ff.l{left:2%;transform-origin:8% 100%;animation:fpole 1.2s ease-out both}
+.finish3d .ff.r{right:2%;transform:scaleX(-1);animation:fpoleR 1.2s ease-out both}
+.finish3d .fw{transform-origin:9px 40px;animation:fwave .55s ease-in-out infinite alternate}
+.finish3d .ff.r .fw{animation-delay:.2s}
+@keyframes fwave{from{transform:skewY(-7deg) scaleX(1)}to{transform:skewY(7deg) scaleX(.93)}}
+@keyframes fpole{from{opacity:0;transform:translateY(40px) rotate(-12deg)}to{opacity:1;transform:none}}
+@keyframes fpoleR{from{opacity:0;transform:scaleX(-1) translateY(40px) rotate(-12deg)}to{opacity:1;transform:scaleX(-1)}}
+.finish3d .fbanner{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;color:#fff;animation:fpop .7s cubic-bezier(.2,1.6,.4,1) both}
+.finish3d .fbanner b{display:block;font-size:clamp(2.6rem,11vw,5.2rem);font-weight:900;letter-spacing:.04em;text-shadow:0 5px 0 #b82a2e,0 8px 22px rgba(0,0,0,.55);-webkit-text-stroke:2px #1b2347}
+.finish3d .fbanner span{display:inline-block;margin-top:8px;padding:6px 20px;border-radius:999px;background:#f5c518;color:#1b2347;font-weight:900;font-size:clamp(1.1rem,4.5vw,1.8rem);box-shadow:0 4px 0 #a98100}
+@keyframes fpop{from{opacity:0;transform:translateX(-50%) scale(.3)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.finish3d .fc{position:absolute;top:-24px;border-radius:2px;opacity:0;animation:ffall 2.4s linear infinite}
+@keyframes ffall{0%{opacity:1;top:-24px}100%{opacity:1;top:105%;margin-left:40px}}
+.finishing .qbox{opacity:0;pointer-events:none;transition:opacity .35s}
+.finish3d .fbanner{top:30%}

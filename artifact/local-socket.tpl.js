@@ -106,7 +106,7 @@
       else if (b.correct === p.correct && b.score >= p.score) b.score = Math.max(0, p.score - 1);
     });
     me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
-    room.timer = setTimeout(function () { me.next(); }, last ? 2600 : 1200);
+    room.timer = setTimeout(function () { me.next(); }, last ? 4200 : 1200);
   };
   LocalSocket.prototype.finish = function () {
     var room = this.room; room.state = 'finished';

@@ -712,6 +712,23 @@ function create(host,R,env){
   raf=requestAnimationFrame(function(t){last=t||0;frame(t)});
   if(doc.fonts&&doc.fonts.load){ doc.fonts.load('800 80px Cairo',title).then(function(){ if(!disposed) world.redrawBanner(title) }).catch(function(){}); }
 
+  /* finish-line celebration: waving chequered flags, a burst of confetti and a big FINISH banner (removed with the race view) */
+  var finEl=null;
+  function showFinish(){
+    if(finEl||disposed) return;
+    var rk=updateHud(), en=R.lang==='en';
+    var el=doc.createElement('div'); el.className='finish3d';
+    var flag=function(side){ return '<svg class="ff '+side+'" viewBox="0 0 130 110" aria-hidden="true"><defs><pattern id="chk'+side+'" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="#fff"/><rect width="10" height="10" fill="#111"/><rect x="10" y="10" width="10" height="10" fill="#111"/></pattern></defs><rect x="2" y="2" width="7" height="108" rx="3" fill="#e5e7eb"/><g class="fw"><rect x="9" y="6" width="116" height="66" fill="url(#chk'+side+')" stroke="#111" stroke-width="2"/></g></svg>'; };
+    var big=rk===1?(en?'1st place!':'المركز الأول!'):(en?'Race finished!':'خلصتي السباق!');
+    el.innerHTML=flag('l')+flag('r')+'<div class="fbanner"><b dir="ltr">🏁 FINISH!</b><span>'+big+'</span></div>';
+    var cols=['#ffd23f','#ff5a5f','#4ade80','#60a5fa','#c084fc','#ffffff','#ff9a2a'];
+    for(var i=0;i<70;i++){
+      var c=doc.createElement('i'); c.className='fc'; c.style.left=(Math.random()*100).toFixed(1)+'%'; c.style.background=cols[i%cols.length];
+      c.style.animationDelay=(Math.random()*0.9).toFixed(2)+'s'; c.style.animationDuration=(1.8+Math.random()*1.6).toFixed(2)+'s'; c.style.transform='rotate('+Math.floor(Math.random()*360)+'deg)';
+      c.style.width=(6+Math.random()*7).toFixed(0)+'px'; c.style.height=(10+Math.random()*9).toFixed(0)+'px'; el.appendChild(c);
+    }
+    host.appendChild(el); host.classList.add('finishing'); finEl=el; world.lights.forEach(function(m){m.color.setHex(0x62e07a)}); shake=0.8;
+  }
   function later(fn,ms){var id=setTimeout(fn,ms);timers.push(id);return id}
   return {
     toast:toast,
@@ -754,13 +771,13 @@ function create(host,R,env){
       layout(); updateHud();
     },
     wrongMe:function(){ fl.className='flash'; void fl.offsetWidth; fl.className='flash on'; shake=0.5; startSpin(me); },
-    finalize:function(){final=true},
+    finalize:function(){ final=true; showFinish(); },
     dispose:function(){
       if(disposed) return; disposed=true; cancelAnimationFrame(raf); timers.forEach(clearTimeout);
       window.removeEventListener('resize',resize); if(ro) ro.disconnect();
       try{ if(doc.fullscreenElement===host) doc.exitFullscreen(); }catch(e){}
-      world.dispose(); try{renderer.dispose(); if(renderer.forceContextLoss) renderer.forceContextLoss();}catch(e){}
-      [cvs,hud,tagsBox,cd,sl,fl,toastEl].forEach(function(n){ if(n.parentNode) n.parentNode.removeChild(n); });
+      host.classList.remove('finishing'); world.dispose(); try{renderer.dispose(); if(renderer.forceContextLoss) renderer.forceContextLoss();}catch(e){}
+      [cvs,hud,tagsBox,cd,sl,fl,toastEl,finEl].forEach(function(n){ if(n&&n.parentNode) n.parentNode.removeChild(n); });
     }
   };
 }

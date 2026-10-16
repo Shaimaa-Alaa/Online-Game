@@ -150,6 +150,14 @@
     var cm = [new THREE.MeshLambertMaterial({ color: 0xe63946 }), new THREE.MeshLambertMaterial({ color: 0xffffff })];
     for (var ci = 0; ci < 72; ci++) { var an = ci / 72 * Math.PI * 2, cb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.25, 0.9), cm[ci % 2]); cb.position.set(Math.cos(an) * 39.6, 0.12, Math.sin(an) * 39.6); cb.rotation.y = -an + Math.PI / 2; scene.add(cb); }
     for (var ti = 0; ti < 34; ti++) { var ta = ti / 34 * Math.PI * 2 + (ti % 3) * 0.05, tr = 18 + (ti * 7 % 17); if (tr > 31 && tr < 52) tr += 22; scene.add(tree(Math.cos(ta) * tr, -Math.abs(Math.sin(ta)) * tr - 7, 0.9 + (ti % 4) * 0.18)); }
+    var chkCv = document.createElement('canvas'); chkCv.width = chkCv.height = 128; var cg = chkCv.getContext('2d');
+    for (var ry = 0; ry < 4; ry++) for (var rx = 0; rx < 4; rx++) { cg.fillStyle = (rx + ry) % 2 ? '#111' : '#fff'; cg.fillRect(rx * 32, ry * 32, 32, 32); }
+    var chkTex = new THREE.CanvasTexture(chkCv), flagsW = [];
+    [-1, 1].forEach(function (sd) {
+      var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 8, 8), new THREE.MeshLambertMaterial({ color: 0xe5e7eb })); pole.position.set(sd * 9.5, 4, -3); scene.add(pole);
+      var fg = new THREE.PlaneGeometry(4.4, 2.8, 14, 6), fm = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ map: chkTex, side: THREE.DoubleSide }));
+      fm.position.set(sd * 9.5 - sd * 2.2, 6.4, -3); fm.userData.base = fg.attributes.position.array.slice(); fm.userData.sd = sd; scene.add(fm); flagsW.push(fm);
+    });
     var spots = [0xffd23f, 0x7aa7ff, 0xff7aa8];
     var heights = { 1: 3.2, 2: 2.2, 3: 1.5 }, xs = { 1: 0, 2: -5.4, 3: 5.4 }, cols = { 1: 0xf2b705, 2: 0xaeb7c4, 3: 0xc67a3c };
     var items = [];
@@ -177,6 +185,7 @@
         it.g.position.y = it.base + drop + (u >= 1 ? Math.abs(Math.sin(st.t * 5 + it.ph)) * 0.05 * (it.rk === 1 ? 2 : 1) : 0);
         if (it.rk === 1) it.g.rotation.y = Math.PI + Math.sin(st.t * 0.9) * 0.5;
       });
+      flagsW.forEach(function (fm) { var a = fm.geometry.attributes.position.array, b = fm.userData.base; for (var v = 0; v < a.length; v += 3) { var u = (b[v] * fm.userData.sd * -1 + 2.2) / 4.4; a[v + 2] = Math.sin(u * 5 - st.t * 6) * 0.45 * u; a[v + 1] = b[v + 1] + Math.sin(u * 4 - st.t * 5) * 0.08 * u; } fm.geometry.attributes.position.needsUpdate = true; });
       var p = geo.attributes.position.array;
       for (var q = 0; q < N; q++) { p[q * 3] += Math.sin(st.t * 2 + vel[q][3]) * dt * 1.2 + vel[q][0] * dt; p[q * 3 + 1] += vel[q][1] * dt; p[q * 3 + 2] += vel[q][2] * dt; if (p[q * 3 + 1] < 0) { p[q * 3 + 1] = 16 + Math.random() * 4; p[q * 3] = (Math.random() - .5) * 26; } }
       geo.attributes.position.needsUpdate = true;

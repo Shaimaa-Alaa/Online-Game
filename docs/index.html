@@ -313,6 +313,25 @@ tr.me td{background:rgba(59,130,246,.2)}
 .podium-stage.no3d .pcard{position:relative;left:auto;bottom:auto;transform:none;margin:0 auto}
 @media (max-width:560px){ .podium-stage .podium-pv{height:clamp(430px,74vh,640px)} .pcard{padding:28px 14px 14px} .pstars i{font-size:36px} }
 
+/* finish-line celebration over the race */
+.finish3d{position:absolute;inset:0;z-index:40;pointer-events:none;overflow:hidden}
+.finish3d .ff{position:absolute;top:8%;width:clamp(90px,20vw,190px);filter:drop-shadow(0 4px 6px rgba(0,0,0,.35))}
+.finish3d .ff.l{left:2%;transform-origin:8% 100%;animation:fpole 1.2s ease-out both}
+.finish3d .ff.r{right:2%;transform:scaleX(-1);animation:fpoleR 1.2s ease-out both}
+.finish3d .fw{transform-origin:9px 40px;animation:fwave .55s ease-in-out infinite alternate}
+.finish3d .ff.r .fw{animation-delay:.2s}
+@keyframes fwave{from{transform:skewY(-7deg) scaleX(1)}to{transform:skewY(7deg) scaleX(.93)}}
+@keyframes fpole{from{opacity:0;transform:translateY(40px) rotate(-12deg)}to{opacity:1;transform:none}}
+@keyframes fpoleR{from{opacity:0;transform:scaleX(-1) translateY(40px) rotate(-12deg)}to{opacity:1;transform:scaleX(-1)}}
+.finish3d .fbanner{position:absolute;left:50%;top:22%;transform:translateX(-50%);text-align:center;color:#fff;animation:fpop .7s cubic-bezier(.2,1.6,.4,1) both}
+.finish3d .fbanner b{display:block;font-size:clamp(2.6rem,11vw,5.2rem);font-weight:900;letter-spacing:.04em;text-shadow:0 5px 0 #b82a2e,0 8px 22px rgba(0,0,0,.55);-webkit-text-stroke:2px #1b2347}
+.finish3d .fbanner span{display:inline-block;margin-top:8px;padding:6px 20px;border-radius:999px;background:#f5c518;color:#1b2347;font-weight:900;font-size:clamp(1.1rem,4.5vw,1.8rem);box-shadow:0 4px 0 #a98100}
+@keyframes fpop{from{opacity:0;transform:translateX(-50%) scale(.3)}to{opacity:1;transform:translateX(-50%) scale(1)}}
+.finish3d .fc{position:absolute;top:-24px;border-radius:2px;opacity:0;animation:ffall 2.4s linear infinite}
+@keyframes ffall{0%{opacity:1;top:-24px}100%{opacity:1;top:105%;margin-left:40px}}
+.finishing .qbox{opacity:0;pointer-events:none;transition:opacity .35s}
+.finish3d .fbanner{top:30%}
+
 </style>
 
 <div class="conn" id="conn" hidden>الاتصال انقطع… بنحاول نرجّعه</div>
@@ -3686,6 +3705,23 @@ function create(host,R,env){
   raf=requestAnimationFrame(function(t){last=t||0;frame(t)});
   if(doc.fonts&&doc.fonts.load){ doc.fonts.load('800 80px Cairo',title).then(function(){ if(!disposed) world.redrawBanner(title) }).catch(function(){}); }
 
+  /* finish-line celebration: waving chequered flags, a burst of confetti and a big FINISH banner (removed with the race view) */
+  var finEl=null;
+  function showFinish(){
+    if(finEl||disposed) return;
+    var rk=updateHud(), en=R.lang==='en';
+    var el=doc.createElement('div'); el.className='finish3d';
+    var flag=function(side){ return '<svg class="ff '+side+'" viewBox="0 0 130 110" aria-hidden="true"><defs><pattern id="chk'+side+'" width="20" height="20" patternUnits="userSpaceOnUse"><rect width="20" height="20" fill="#fff"/><rect width="10" height="10" fill="#111"/><rect x="10" y="10" width="10" height="10" fill="#111"/></pattern></defs><rect x="2" y="2" width="7" height="108" rx="3" fill="#e5e7eb"/><g class="fw"><rect x="9" y="6" width="116" height="66" fill="url(#chk'+side+')" stroke="#111" stroke-width="2"/></g></svg>'; };
+    var big=rk===1?(en?'1st place!':'المركز الأول!'):(en?'Race finished!':'خلصتي السباق!');
+    el.innerHTML=flag('l')+flag('r')+'<div class="fbanner"><b dir="ltr">🏁 FINISH!</b><span>'+big+'</span></div>';
+    var cols=['#ffd23f','#ff5a5f','#4ade80','#60a5fa','#c084fc','#ffffff','#ff9a2a'];
+    for(var i=0;i<70;i++){
+      var c=doc.createElement('i'); c.className='fc'; c.style.left=(Math.random()*100).toFixed(1)+'%'; c.style.background=cols[i%cols.length];
+      c.style.animationDelay=(Math.random()*0.9).toFixed(2)+'s'; c.style.animationDuration=(1.8+Math.random()*1.6).toFixed(2)+'s'; c.style.transform='rotate('+Math.floor(Math.random()*360)+'deg)';
+      c.style.width=(6+Math.random()*7).toFixed(0)+'px'; c.style.height=(10+Math.random()*9).toFixed(0)+'px'; el.appendChild(c);
+    }
+    host.appendChild(el); host.classList.add('finishing'); finEl=el; world.lights.forEach(function(m){m.color.setHex(0x62e07a)}); shake=0.8;
+  }
   function later(fn,ms){var id=setTimeout(fn,ms);timers.push(id);return id}
   return {
     toast:toast,
@@ -3728,13 +3764,13 @@ function create(host,R,env){
       layout(); updateHud();
     },
     wrongMe:function(){ fl.className='flash'; void fl.offsetWidth; fl.className='flash on'; shake=0.5; startSpin(me); },
-    finalize:function(){final=true},
+    finalize:function(){ final=true; showFinish(); },
     dispose:function(){
       if(disposed) return; disposed=true; cancelAnimationFrame(raf); timers.forEach(clearTimeout);
       window.removeEventListener('resize',resize); if(ro) ro.disconnect();
       try{ if(doc.fullscreenElement===host) doc.exitFullscreen(); }catch(e){}
-      world.dispose(); try{renderer.dispose(); if(renderer.forceContextLoss) renderer.forceContextLoss();}catch(e){}
-      [cvs,hud,tagsBox,cd,sl,fl,toastEl].forEach(function(n){ if(n.parentNode) n.parentNode.removeChild(n); });
+      host.classList.remove('finishing'); world.dispose(); try{renderer.dispose(); if(renderer.forceContextLoss) renderer.forceContextLoss();}catch(e){}
+      [cvs,hud,tagsBox,cd,sl,fl,toastEl,finEl].forEach(function(n){ if(n&&n.parentNode) n.parentNode.removeChild(n); });
     }
   };
 }
@@ -3895,6 +3931,14 @@ if(typeof module!=='undefined'&&module.exports) module.exports=makeRace3D;
     var cm = [new THREE.MeshLambertMaterial({ color: 0xe63946 }), new THREE.MeshLambertMaterial({ color: 0xffffff })];
     for (var ci = 0; ci < 72; ci++) { var an = ci / 72 * Math.PI * 2, cb = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.25, 0.9), cm[ci % 2]); cb.position.set(Math.cos(an) * 39.6, 0.12, Math.sin(an) * 39.6); cb.rotation.y = -an + Math.PI / 2; scene.add(cb); }
     for (var ti = 0; ti < 34; ti++) { var ta = ti / 34 * Math.PI * 2 + (ti % 3) * 0.05, tr = 18 + (ti * 7 % 17); if (tr > 31 && tr < 52) tr += 22; scene.add(tree(Math.cos(ta) * tr, -Math.abs(Math.sin(ta)) * tr - 7, 0.9 + (ti % 4) * 0.18)); }
+    var chkCv = document.createElement('canvas'); chkCv.width = chkCv.height = 128; var cg = chkCv.getContext('2d');
+    for (var ry = 0; ry < 4; ry++) for (var rx = 0; rx < 4; rx++) { cg.fillStyle = (rx + ry) % 2 ? '#111' : '#fff'; cg.fillRect(rx * 32, ry * 32, 32, 32); }
+    var chkTex = new THREE.CanvasTexture(chkCv), flagsW = [];
+    [-1, 1].forEach(function (sd) {
+      var pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 8, 8), new THREE.MeshLambertMaterial({ color: 0xe5e7eb })); pole.position.set(sd * 9.5, 4, -3); scene.add(pole);
+      var fg = new THREE.PlaneGeometry(4.4, 2.8, 14, 6), fm = new THREE.Mesh(fg, new THREE.MeshBasicMaterial({ map: chkTex, side: THREE.DoubleSide }));
+      fm.position.set(sd * 9.5 - sd * 2.2, 6.4, -3); fm.userData.base = fg.attributes.position.array.slice(); fm.userData.sd = sd; scene.add(fm); flagsW.push(fm);
+    });
     var spots = [0xffd23f, 0x7aa7ff, 0xff7aa8];
     var heights = { 1: 3.2, 2: 2.2, 3: 1.5 }, xs = { 1: 0, 2: -5.4, 3: 5.4 }, cols = { 1: 0xf2b705, 2: 0xaeb7c4, 3: 0xc67a3c };
     var items = [];
@@ -3922,6 +3966,7 @@ if(typeof module!=='undefined'&&module.exports) module.exports=makeRace3D;
         it.g.position.y = it.base + drop + (u >= 1 ? Math.abs(Math.sin(st.t * 5 + it.ph)) * 0.05 * (it.rk === 1 ? 2 : 1) : 0);
         if (it.rk === 1) it.g.rotation.y = Math.PI + Math.sin(st.t * 0.9) * 0.5;
       });
+      flagsW.forEach(function (fm) { var a = fm.geometry.attributes.position.array, b = fm.userData.base; for (var v = 0; v < a.length; v += 3) { var u = (b[v] * fm.userData.sd * -1 + 2.2) / 4.4; a[v + 2] = Math.sin(u * 5 - st.t * 6) * 0.45 * u; a[v + 1] = b[v + 1] + Math.sin(u * 4 - st.t * 5) * 0.08 * u; } fm.geometry.attributes.position.needsUpdate = true; });
       var p = geo.attributes.position.array;
       for (var q = 0; q < N; q++) { p[q * 3] += Math.sin(st.t * 2 + vel[q][3]) * dt * 1.2 + vel[q][0] * dt; p[q * 3 + 1] += vel[q][1] * dt; p[q * 3 + 2] += vel[q][2] * dt; if (p[q * 3 + 1] < 0) { p[q * 3 + 1] = 16 + Math.random() * 4; p[q * 3] = (Math.random() - .5) * 26; } }
       geo.attributes.position.needsUpdate = true;
@@ -4135,7 +4180,7 @@ function levelOf(acc) {
       else if (b.correct === p.correct && b.score >= p.score) b.score = Math.max(0, p.score - 1);
     });
     me.emit({ t: 'reveal', n: room.round, total: room.qs.length, correct: q.type === 'short' ? (q.essay && q.model ? q.model : q.essay ? q.accepted.join('، ') : q.accepted[0]) : q.answer, qtype: q.type, per: per, dist: dist, board: me.board(false), last: last });
-    room.timer = setTimeout(function () { me.next(); }, last ? 2600 : 1200);
+    room.timer = setTimeout(function () { me.next(); }, last ? 4200 : 1200);
   };
   LocalSocket.prototype.finish = function () {
     var room = this.room; room.state = 'finished';
@@ -4448,7 +4493,7 @@ const TX = (ar, en) => (Race.lang === 'en' ? en : ar);
 function endRace() {
   engineStop(); clearInterval(Race.tick);
   if (Race.view) { try { Race.view.dispose(); } catch (e) { /* ignore */ } Race.view = null; }
-  $$('.gl,.hud,.tags,.cd,.sl,.flash,.toast3d,.flatbars', $('#stage')).forEach((n) => n.remove());
+  $$('.gl,.hud,.tags,.cd,.sl,.flash,.toast3d,.flatbars,.finish3d', $('#stage')).forEach((n) => n.remove());
   Race.ready = false; Race.pending = null; Race.q = null; $('#qbox').hidden = true;
 }
 on('countdown', (m) => {
@@ -4461,7 +4506,7 @@ on('countdown', (m) => {
   Preview.unmount(); show('race'); $('#bar-title').textContent = (S.lobby && S.lobby.title) || 'سباق المعرفة';
   const list = (S.lobby ? S.lobby.players : []).map((p) => ({ id: p.id, name: p.name, color: COLORS[p.color] || COLORS.red, score: 0 }));
   Race.players = list; Race.total = m.total; Race.ready = false; Race.pending = null; Race.answered = -1;
-  const R = { cfg: { title: (S.lobby && S.lobby.title) || 'سباق المعرفة' }, players: list, myId: S.student.pid, total: m.total };
+  const R = { lang: Race.lang, cfg: { title: (S.lobby && S.lobby.title) || 'سباق المعرفة' }, players: list, myId: S.student.pid, total: m.total };
   const goIn = m.startAt - nowS(); Race.t0 = Date.now() + Math.max(0, goIn);
   let view = null; try { view = R3 ? R3.create($('#stage'), R, { onFrame: engineSet }) : null; } catch (e) { view = null; if (window.console) console.error('race3d create failed', e); }
   if (view) {
